@@ -1,6 +1,7 @@
 package main
 
 import (
+	"html"
 	"os"
 	"sort"
 
@@ -193,7 +194,7 @@ func (a *App) openMainWindow() {
 			if displayGroup == "" {
 				displayGroup = "Uncategorized"
 			}
-			lbl.SetMarkup("<b>" + displayGroup + "</b>")
+			lbl.SetMarkup("<b>" + html.EscapeString(displayGroup) + "</b>")
 			lbl.SetXAlign(0)
 			lbl.SetMarginTop(10)
 			lbl.SetMarginBottom(5)
