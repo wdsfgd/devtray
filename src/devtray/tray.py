@@ -20,12 +20,23 @@ class DevTrayApp:
         # Setup Main Window
         self.main_window = MainWindow(self.task_manager, self.build_menu)
         
-        # Setup AppIndicator
-        self.indicator = AppIndicator.Indicator.new(
-            "devtray",
-            "utilities-terminal", # Default system icon
-            AppIndicator.IndicatorCategory.APPLICATION_STATUS
-        )
+        # Suppress stderr temporarily to hide the libayatana-appindicator C-level deprecation warning
+        import os
+        fd = os.open(os.devnull, os.O_WRONLY)
+        old_fd = os.dup(2)
+        os.dup2(fd, 2)
+        
+        try:
+            self.indicator = AppIndicator.Indicator.new(
+                "devtray",
+                "utilities-terminal", # Default system icon
+                AppIndicator.IndicatorCategory.APPLICATION_STATUS
+            )
+        finally:
+            os.dup2(old_fd, 2)
+            os.close(fd)
+            os.close(old_fd)
+            
         self.indicator.set_status(AppIndicator.IndicatorStatus.ACTIVE)
         
         # Build initial menu
