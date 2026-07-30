@@ -151,6 +151,23 @@ func (a *App) updateMainWindow() {
 		lbl.SetXAlign(0)
 		box.PackStart(lbl, true, true, 0)
 
+		btnToggle, _ := gtk.ButtonNewWithLabel(func() string {
+			if a.tm.IsRunning(task) {
+				return "Stop"
+			}
+			return "Start"
+		}())
+		btnToggle.Connect("clicked", func() {
+			if a.tm.IsRunning(task) {
+				a.tm.StopTask(task)
+			} else {
+				a.tm.StartTask(task)
+			}
+			a.buildMenu()
+			a.updateMainWindow()
+		})
+		box.PackStart(btnToggle, false, false, 0)
+
 		btnEdit, _ := gtk.ButtonNewWithLabel("Edit")
 		btnEdit.Connect("clicked", func() {
 			a.openTaskDialog(a.mainWindow, "Edit Task", task)
