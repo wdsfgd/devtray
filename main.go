@@ -27,6 +27,9 @@ func main() {
 	app.indicator.SetStatus(appindicator.StatusActive)
 
 	app.buildMenu()
+	
+	// Automatically open the main window when the application starts
+	app.openMainWindow()
 
 	gtk.Main()
 }
@@ -269,13 +272,15 @@ func (a *App) updateMainWindow() {
 		lbl.SetXAlign(0)
 		box.PackStart(lbl, true, true, 0)
 
-		var btnEmoji string
+		btnToggle, _ := gtk.ButtonNew()
+		var btnIcon string
 		if a.tm.IsRunning(task) {
-			btnEmoji = "🛑"
+			btnIcon = "media-playback-stop"
 		} else {
-			btnEmoji = "▶️"
+			btnIcon = "media-playback-start"
 		}
-		btnToggle, _ := gtk.ButtonNewWithLabel(btnEmoji)
+		btnImg, _ := gtk.ImageNewFromIconName(btnIcon, gtk.ICON_SIZE_BUTTON)
+		btnToggle.SetImage(btnImg)
 		btnToggle.SetTooltipText("Start/Stop Task")
 		btnToggle.Connect("clicked", func() {
 			if a.tm.IsRunning(task) {
@@ -295,7 +300,7 @@ func (a *App) updateMainWindow() {
 		box.PackStart(btnEdit, false, false, 0)
 
 		// Move Up Button
-		btnUp, _ := gtk.ButtonNewWithLabel("⬆️")
+		btnUp, _ := gtk.ButtonNewFromIconName("go-up", gtk.ICON_SIZE_BUTTON)
 		btnUp.SetTooltipText("Move Up")
 		btnUp.Connect("clicked", func() {
 			a.moveTask(task, -1)
@@ -303,7 +308,7 @@ func (a *App) updateMainWindow() {
 		box.PackStart(btnUp, false, false, 0)
 
 		// Move Down Button
-		btnDown, _ := gtk.ButtonNewWithLabel("⬇️")
+		btnDown, _ := gtk.ButtonNewFromIconName("go-down", gtk.ICON_SIZE_BUTTON)
 		btnDown.SetTooltipText("Move Down")
 		btnDown.Connect("clicked", func() {
 			a.moveTask(task, 1)
