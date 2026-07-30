@@ -124,8 +124,8 @@ func (tm *TaskManager) StartTask(task *Task) {
 func (tm *TaskManager) StopTask(task *Task) {
 	if cmd, ok := tm.processes[task]; ok {
 		if cmd.Process != nil {
-			// Kill process group
-			syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
+			// Kill process group forcefully
+			syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 		}
 		delete(tm.processes, task)
 	}
