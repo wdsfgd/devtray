@@ -256,28 +256,26 @@ func (a *App) updateMainWindow() {
 		box, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 10)
 		box.SetBorderWidth(5)
 
-		var iconName string
+		var statusEmoji string
 		if a.tm.IsRunning(task) {
-			iconName = "media-record" // Running indicator
+			statusEmoji = "🟢"
 		} else {
-			iconName = "media-playback-stop" // Stopped indicator
+			statusEmoji = "🔴"
 		}
-		imgStatus, _ := gtk.ImageNewFromIconName(iconName, gtk.ICON_SIZE_BUTTON)
-		box.PackStart(imgStatus, false, false, 0)
+		lblStatus, _ := gtk.LabelNew(statusEmoji)
+		box.PackStart(lblStatus, false, false, 0)
 
 		lbl, _ := gtk.LabelNew(task.Name)
 		lbl.SetXAlign(0)
 		box.PackStart(lbl, true, true, 0)
 
-		btnToggle, _ := gtk.ButtonNew()
-		var btnIcon string
+		var btnEmoji string
 		if a.tm.IsRunning(task) {
-			btnIcon = "media-playback-stop"
+			btnEmoji = "🛑"
 		} else {
-			btnIcon = "media-playback-start"
+			btnEmoji = "▶️"
 		}
-		btnImg, _ := gtk.ImageNewFromIconName(btnIcon, gtk.ICON_SIZE_BUTTON)
-		btnToggle.SetImage(btnImg)
+		btnToggle, _ := gtk.ButtonNewWithLabel(btnEmoji)
 		btnToggle.SetTooltipText("Start/Stop Task")
 		btnToggle.Connect("clicked", func() {
 			if a.tm.IsRunning(task) {
@@ -297,7 +295,7 @@ func (a *App) updateMainWindow() {
 		box.PackStart(btnEdit, false, false, 0)
 
 		// Move Up Button
-		btnUp, _ := gtk.ButtonNewFromIconName("go-up", gtk.ICON_SIZE_BUTTON)
+		btnUp, _ := gtk.ButtonNewWithLabel("⬆️")
 		btnUp.SetTooltipText("Move Up")
 		btnUp.Connect("clicked", func() {
 			a.moveTask(task, -1)
@@ -305,7 +303,7 @@ func (a *App) updateMainWindow() {
 		box.PackStart(btnUp, false, false, 0)
 
 		// Move Down Button
-		btnDown, _ := gtk.ButtonNewFromIconName("go-down", gtk.ICON_SIZE_BUTTON)
+		btnDown, _ := gtk.ButtonNewWithLabel("⬇️")
 		btnDown.SetTooltipText("Move Down")
 		btnDown.Connect("clicked", func() {
 			a.moveTask(task, 1)
