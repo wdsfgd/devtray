@@ -10,7 +10,7 @@ except ValueError:
     from gi.repository import AppIndicator3 as AppIndicator
 
 from gi.repository import Gtk, GLib
-from devtray.task_manager import TaskManager
+from devtray.task_manager import TaskManager, Task
 
 class DevTrayApp:
     def __init__(self, task_manager: TaskManager):
@@ -24,6 +24,7 @@ class DevTrayApp:
         )
         self.indicator.set_status(AppIndicator.IndicatorStatus.ACTIVE)
         
+        # Build initial menu
         self.build_menu()
         
     def build_menu(self):
@@ -38,25 +39,53 @@ class DevTrayApp:
         else:
             for task in tasks:
                 is_running = self.task_manager.is_running(task)
-                status_icon = "🟢" if is_running else "🔴"
+                status_icon = "🛑 Stop" if is_running else "▶️ Start"
                 label_text = f"{status_icon} {task.name}"
+                
                 item = Gtk.MenuItem(label=label_text)
-                # At this stage, it's read only. We'll add interactivity in Ticket 03
-                item.set_sensitive(False)
+                # Pass the task object to the handler
+                item.connect("activate", self.on_task_toggled, task)
                 menu.append(item)
                 
         menu.append(Gtk.SeparatorMenuItem())
         
         item_quit = Gtk.MenuItem(label="Quit DevTray")
-        item_quit.connect("activate", self.quit)
+        item_quit.connect("activate", self.on_quit_clicked)
         menu.append(item_quit)
         
         menu.show_all()
         self.indicator.set_menu(menu)
         
-    def quit(self, widget):
-        Gtk.main_quit()
+    def on_task_toggled(self, widget, task: Task):
+        if self.task_manager.is_running(task):
+            self.task_manager.stop_task(task)
+        else:
+            self.task_manager.start_task(task)
+            
+        # Rebuild the menu to reflect the new state immediately
+        self.build_menu()
         
+    def on_quit_clicked(self, widget):
+        dialog = Gtk.MessageDialog(
+            parent=None,
+            flags=0,
+            message_type=Gtk.MessageType.QUESTION,
+            buttons=Gtk.ButtonsType.YES_NO,
+            text="Keluar dari DevTray?"
+        )
+        dialog.format_secondary_text(
+            "Ini akan mematikan semua Task yang sedang berjalan. Yakin ingin keluar?"
+        )
+        
+        response = dialog.run()
+        if response == Gtk.ResponseType.YES:
+            # Gracefully terminate all background processes
+            self.task_manager.stop_all()
+            dialog.destroy()
+            Gtk.main_quit()
+        else:
+            dialog.destroy()
+            
     def run(self):
         Gtk.main()
 
