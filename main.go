@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"github.com/dawidd6/go-appindicator"
+	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 )
 
@@ -19,6 +20,8 @@ type App struct {
 }
 
 func main() {
+	glib.SetPrgname("devtray")
+	glib.SetApplicationName("DevTray")
 	gtk.Init(nil)
 
 	tm := NewTaskManager()
@@ -162,7 +165,7 @@ func (a *App) openMainWindow() {
 	win.SetDefaultSize(400, 500)
 	
 	cwd, _ := os.Getwd()
-	iconPath := filepath.Join(cwd, "assets", "icon.jpg")
+	iconPath := filepath.Join(cwd, "assets", "icon.svg")
 	win.SetIconFromFile(iconPath)
 	
 	win.Connect("delete-event", func() bool {

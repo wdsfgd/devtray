@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="transparent"/>
+  <!-- Tray Base -->
+  <path d="M64 384 L448 384 L416 448 L96 448 Z" fill="#64748b"/>
+  <!-- Terminal Window -->
+  <rect x="96" y="96" width="320" height="256" rx="24" ry="24" fill="#1e293b"/>
+  <!-- Window Buttons -->
+  <circle cx="136" cy="136" r="12" fill="#ef4444"/>
+  <circle cx="168" cy="136" r="12" fill="#eab308"/>
+  <circle cx="200" cy="136" r="12" fill="#22c55e"/>
+  <!-- Terminal Prompt -->
+  <path d="M144 192 L192 240 L144 288" stroke="#10b981" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Cursor -->
+  <rect x="224" y="264" width="80" height="24" fill="#10b981" rx="8" ry="8"/>
+</svg>
