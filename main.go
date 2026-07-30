@@ -48,13 +48,8 @@ func (a *App) buildMenu() {
 	} else {
 		for _, t := range a.tm.Tasks {
 			task := t // capture for closure
-			var label string
-			if a.tm.IsRunning(task) {
-				label = "Stop: " + task.Name
-			} else {
-				label = "Start: " + task.Name
-			}
-			item, _ := gtk.MenuItemNewWithLabel(label)
+			item, _ := gtk.CheckMenuItemNewWithLabel(task.Name)
+			item.SetActive(a.tm.IsRunning(task))
 			item.Connect("activate", func() {
 				if a.tm.IsRunning(task) {
 					a.tm.StopTask(task)
