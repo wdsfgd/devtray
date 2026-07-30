@@ -290,7 +290,6 @@ func (a *App) updateMainWindow() {
 		}
 		btnImg, _ := gtk.ImageNewFromIconName(btnIcon, gtk.ICON_SIZE_BUTTON)
 		btnToggle.SetImage(btnImg)
-		btnToggle.SetTooltipText("Start/Stop Task")
 		btnToggle.Connect("clicked", func() {
 			if a.tm.IsRunning(task) {
 				a.tm.StopTask(task)
