@@ -46,8 +46,72 @@ func (a *App) buildMenu() {
 		empty.SetSensitive(false)
 		menu.Append(empty)
 	} else {
+		groups := make(map[string][]*Task)
+		var uncategorized []*Task
+
 		for _, t := range a.tm.Tasks {
-			task := t // capture for closure
+			if t.Group != "" {
+				groups[t.Group] = append(groups[t.Group], t)
+			} else {
+				uncategorized = append(uncategorized, t)
+			}
+		}
+
+		for groupName, groupTasks := range groups {
+			groupItem, _ := gtk.MenuItemNewWithLabel(groupName)
+			submenu, _ := gtk.MenuNew()
+			groupItem.SetSubmenu(submenu)
+
+			startAll, _ := gtk.MenuItemNewWithLabel("▶️ Start All")
+			gTasksStart := groupTasks
+			startAll.Connect("activate", func() {
+				for _, t := range gTasksStart {
+					a.tm.StartTask(t)
+				}
+				a.buildMenu()
+				a.updateMainWindow()
+			})
+			submenu.Append(startAll)
+
+			stopAll, _ := gtk.MenuItemNewWithLabel("🛑 Stop All")
+			gTasksStop := groupTasks
+			stopAll.Connect("activate", func() {
+				for _, t := range gTasksStop {
+					a.tm.StopTask(t)
+				}
+				a.buildMenu()
+				a.updateMainWindow()
+			})
+			submenu.Append(stopAll)
+
+			sep, _ := gtk.SeparatorMenuItemNew()
+			submenu.Append(sep)
+
+			for _, t := range groupTasks {
+				task := t
+				item, _ := gtk.CheckMenuItemNewWithLabel(task.Name)
+				item.SetActive(a.tm.IsRunning(task))
+				item.Connect("activate", func() {
+					if a.tm.IsRunning(task) {
+						a.tm.StopTask(task)
+					} else {
+						a.tm.StartTask(task)
+					}
+					a.buildMenu()
+					a.updateMainWindow()
+				})
+				submenu.Append(item)
+			}
+			menu.Append(groupItem)
+		}
+
+		if len(uncategorized) > 0 && len(groups) > 0 {
+			sep, _ := gtk.SeparatorMenuItemNew()
+			menu.Append(sep)
+		}
+
+		for _, t := range uncategorized {
+			task := t
 			item, _ := gtk.CheckMenuItemNewWithLabel(task.Name)
 			item.SetActive(a.tm.IsRunning(task))
 			item.Connect("activate", func() {
