@@ -25,7 +25,7 @@ func main() {
 	app := &App{tm: tm}
 
 	cwd, _ := os.Getwd()
-	iconPath := filepath.Join(cwd, "assets", "icon.png")
+	iconPath := filepath.Join(cwd, "assets", "devtray-icon-v2.png")
 
 	app.indicator = appindicator.New("devtray", iconPath, appindicator.CategoryApplicationStatus)
 	app.indicator.SetStatus(appindicator.StatusActive)
@@ -162,7 +162,7 @@ func (a *App) openMainWindow() {
 	win.SetDefaultSize(400, 500)
 	
 	cwd, _ := os.Getwd()
-	iconPath := filepath.Join(cwd, "assets", "icon.png")
+	iconPath := filepath.Join(cwd, "assets", "devtray-icon-v2.png")
 	win.SetIconFromFile(iconPath)
 	
 	win.Connect("delete-event", func() bool {
