@@ -295,6 +295,22 @@ func (a *App) updateMainWindow() {
 		})
 		box.PackStart(btnEdit, false, false, 0)
 
+		// Move Up Button
+		btnUp, _ := gtk.ButtonNewFromIconName("go-up", gtk.ICON_SIZE_BUTTON)
+		btnUp.SetTooltipText("Move Up")
+		btnUp.Connect("clicked", func() {
+			a.moveTask(task, -1)
+		})
+		box.PackStart(btnUp, false, false, 0)
+
+		// Move Down Button
+		btnDown, _ := gtk.ButtonNewFromIconName("go-down", gtk.ICON_SIZE_BUTTON)
+		btnDown.SetTooltipText("Move Down")
+		btnDown.Connect("clicked", func() {
+			a.moveTask(task, 1)
+		})
+		box.PackStart(btnDown, false, false, 0)
+
 		btnDel, _ := gtk.ButtonNewWithLabel("Delete")
 		btnDel.Connect("clicked", func() {
 			a.confirmDelete(task)
@@ -305,6 +321,48 @@ func (a *App) updateMainWindow() {
 		a.listBox.Add(row)
 	}
 	a.listBox.ShowAll()
+}
+
+func (a *App) moveTask(task *Task, direction int) {
+	// Find index of task
+	idx := -1
+	for i, t := range a.tm.Tasks {
+		if t == task {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		return
+	}
+
+	// Find the next/prev task in the SAME group
+	targetIdx := -1
+	if direction < 0 {
+		// Move up
+		for i := idx - 1; i >= 0; i-- {
+			if a.tm.Tasks[i].Group == task.Group {
+				targetIdx = i
+				break
+			}
+		}
+	} else {
+		// Move down
+		for i := idx + 1; i < len(a.tm.Tasks); i++ {
+			if a.tm.Tasks[i].Group == task.Group {
+				targetIdx = i
+				break
+			}
+		}
+	}
+
+	if targetIdx != -1 {
+		// Swap
+		a.tm.Tasks[idx], a.tm.Tasks[targetIdx] = a.tm.Tasks[targetIdx], a.tm.Tasks[idx]
+		a.tm.SaveConfig()
+		a.updateMainWindow()
+		a.buildMenu()
+	}
 }
 
 func (a *App) openTaskDialog(parent *gtk.Window, title string, existingTask *Task) {
