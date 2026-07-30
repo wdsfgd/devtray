@@ -5,7 +5,6 @@
 *.so
 *.dylib
 bin/
-devtray_go_app
 
 # Test binary, built with `go test -c`
 *.test
@@ -14,4 +13,13 @@ devtray_go_app
 *.out
 
 # Dependency directories (remove the comment below to include it)
-# vendor/
+
+# Agent, AI, and Documentation files
+.agents/skills
+.claude/skills
+.scratch/devtray/
+docs/
+skills-lock.json
+AGENTS.md
+CLAUDE.md
+CONTEXT.md
