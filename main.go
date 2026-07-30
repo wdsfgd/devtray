@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"sort"
 
 	"github.com/dawidd6/go-appindicator"
 	"github.com/gotk3/gotk3/gtk"
@@ -179,6 +180,29 @@ func (a *App) openMainWindow() {
 
 	listbox, _ := gtk.ListBoxNew()
 	listbox.SetSelectionMode(gtk.SELECTION_NONE)
+	
+	listbox.SetHeaderFunc(func(row, before *gtk.ListBoxRow) {
+		groupName, _ := row.GetName()
+		var beforeGroup string
+		if before != nil {
+			beforeGroup, _ = before.GetName()
+		}
+		if before == nil || groupName != beforeGroup {
+			lbl, _ := gtk.LabelNew("")
+			displayGroup := groupName
+			if displayGroup == "" {
+				displayGroup = "Uncategorized"
+			}
+			lbl.SetMarkup("<b>" + displayGroup + "</b>")
+			lbl.SetXAlign(0)
+			lbl.SetMarginTop(10)
+			lbl.SetMarginBottom(5)
+			row.SetHeader(lbl)
+		} else {
+			row.SetHeader(nil)
+		}
+	})
+	
 	scrolled.Add(listbox)
 
 	a.mainWindow = win
@@ -198,9 +222,36 @@ func (a *App) updateMainWindow() {
 		a.listBox.Remove(item.(*gtk.Widget))
 	})
 
+	// Group and sort tasks deterministically
+	groups := make(map[string][]*Task)
+	var uncategorized []*Task
+
+	for _, t := range a.tm.Tasks {
+		if t.Group != "" {
+			groups[t.Group] = append(groups[t.Group], t)
+		} else {
+			uncategorized = append(uncategorized, t)
+		}
+	}
+
+	var groupNames []string
+	for k := range groups {
+		groupNames = append(groupNames, k)
+	}
+	sort.Strings(groupNames)
+	
+	var orderedTasks []*Task
+	for _, g := range groupNames {
+		orderedTasks = append(orderedTasks, groups[g]...)
+	}
+	orderedTasks = append(orderedTasks, uncategorized...)
+	
+	a.tm.Tasks = orderedTasks
+
 	for _, t := range a.tm.Tasks {
 		task := t
 		row, _ := gtk.ListBoxRowNew()
+		row.SetName(task.Group)
 		box, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 10)
 		box.SetBorderWidth(5)
 
