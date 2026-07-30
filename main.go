@@ -32,7 +32,7 @@ func main() {
 func (a *App) buildMenu() {
 	menu, _ := gtk.MenuNew()
 
-	openItem, _ := gtk.MenuItemNewWithLabel("Buka Main Window")
+	openItem, _ := gtk.MenuItemNewWithLabel("Open Main Window")
 	openItem.Connect("activate", func() {
 		a.openMainWindow()
 	})
@@ -42,7 +42,7 @@ func (a *App) buildMenu() {
 	menu.Append(sep1)
 
 	if len(a.tm.Tasks) == 0 {
-		empty, _ := gtk.MenuItemNewWithLabel("Belum ada Task")
+		empty, _ := gtk.MenuItemNewWithLabel("No Tasks Available")
 		empty.SetSensitive(false)
 		menu.Append(empty)
 	} else {
@@ -88,7 +88,7 @@ func (a *App) openMainWindow() {
 	}
 
 	win, _ := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
-	win.SetTitle("DevTray - Manajemen Task")
+	win.SetTitle("DevTray - Task Management")
 	win.SetDefaultSize(400, 500)
 	win.Connect("delete-event", func() bool {
 		a.mainWindow = nil
@@ -101,13 +101,13 @@ func (a *App) openMainWindow() {
 
 	hbox, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 10)
 	label, _ := gtk.LabelNew("")
-	label.SetMarkup("<b>Daftar Task</b>")
+	label.SetMarkup("<b>Task List</b>")
 	label.SetXAlign(0)
 	hbox.PackStart(label, true, true, 0)
 
-	btnAdd, _ := gtk.ButtonNewWithLabel("Tambah Task")
+	btnAdd, _ := gtk.ButtonNewWithLabel("Add Task")
 	btnAdd.Connect("clicked", func() {
-		a.openTaskDialog(win, "Tambah Task", nil)
+		a.openTaskDialog(win, "Add Task", nil)
 	})
 	hbox.PackStart(btnAdd, false, false, 0)
 	vbox.PackStart(hbox, false, false, 0)
@@ -157,7 +157,7 @@ func (a *App) updateMainWindow() {
 		})
 		box.PackStart(btnEdit, false, false, 0)
 
-		btnDel, _ := gtk.ButtonNewWithLabel("Hapus")
+		btnDel, _ := gtk.ButtonNewWithLabel("Delete")
 		btnDel.Connect("clicked", func() {
 			a.confirmDelete(task)
 		})
@@ -170,8 +170,11 @@ func (a *App) updateMainWindow() {
 }
 
 func (a *App) openTaskDialog(parent *gtk.Window, title string, existingTask *Task) {
-	dialog, _ := gtk.DialogNewWithButtons(title, parent, 0,
-		[]interface{}{"Batal", gtk.RESPONSE_CANCEL, "Simpan", gtk.RESPONSE_OK})
+	dialog, _ := gtk.DialogNew()
+	dialog.SetTitle(title)
+	dialog.SetTransientFor(parent)
+	dialog.AddButton("Cancel", gtk.RESPONSE_CANCEL)
+	dialog.AddButton("Save", gtk.RESPONSE_OK)
 	dialog.SetDefaultSize(300, 200)
 	dialog.SetBorderWidth(10)
 
@@ -195,8 +198,8 @@ func (a *App) openTaskDialog(parent *gtk.Window, title string, existingTask *Tas
 		dirStr = existingTask.WorkingDirectory
 	}
 
-	entryName := addInput("Nama Task:", nameStr)
-	entryCmd := addInput("Perintah (Command):", cmdStr)
+	entryName := addInput("Task Name:", nameStr)
+	entryCmd := addInput("Command:", cmdStr)
 	entryDir := addInput("Working Directory:", dirStr)
 
 	dialog.ShowAll()
@@ -222,8 +225,8 @@ func (a *App) openTaskDialog(parent *gtk.Window, title string, existingTask *Tas
 }
 
 func (a *App) confirmDelete(task *Task) {
-	dialog := gtk.MessageDialogNew(a.mainWindow, 0, gtk.MESSAGE_WARNING, gtk.BUTTONS_YES_NO, "Hapus task '%s'?", task.Name)
-	dialog.FormatSecondaryText("Ini akan menghentikan task jika sedang berjalan dan menghapusnya.")
+	dialog := gtk.MessageDialogNew(a.mainWindow, 0, gtk.MESSAGE_WARNING, gtk.BUTTONS_YES_NO, "Delete task '%s'?", task.Name)
+	dialog.FormatSecondaryText("This will stop the task if running and delete it.")
 	resp := dialog.Run()
 	if resp == gtk.RESPONSE_YES {
 		a.tm.RemoveTask(task)
@@ -234,8 +237,8 @@ func (a *App) confirmDelete(task *Task) {
 }
 
 func (a *App) confirmQuit() {
-	dialog := gtk.MessageDialogNew(nil, 0, gtk.MESSAGE_QUESTION, gtk.BUTTONS_YES_NO, "Keluar dari DevTray?")
-	dialog.FormatSecondaryText("Ini akan mematikan semua Task yang sedang berjalan. Yakin ingin keluar?")
+	dialog := gtk.MessageDialogNew(nil, 0, gtk.MESSAGE_QUESTION, gtk.BUTTONS_YES_NO, "Quit DevTray?")
+	dialog.FormatSecondaryText("This will terminate all running tasks. Are you sure you want to quit?")
 	resp := dialog.Run()
 	dialog.Destroy()
 	
