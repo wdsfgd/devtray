@@ -3,6 +3,7 @@ package main
 import (
 	"html"
 	"os"
+	"path/filepath"
 	"sort"
 
 	"github.com/dawidd6/go-appindicator"
@@ -23,7 +24,10 @@ func main() {
 	tm := NewTaskManager()
 	app := &App{tm: tm}
 
-	app.indicator = appindicator.New("devtray", "utilities-terminal", appindicator.CategoryApplicationStatus)
+	cwd, _ := os.Getwd()
+	iconPath := filepath.Join(cwd, "assets", "icon.jpg")
+
+	app.indicator = appindicator.New("devtray", iconPath, appindicator.CategoryApplicationStatus)
 	app.indicator.SetStatus(appindicator.StatusActive)
 
 	app.buildMenu()
@@ -156,6 +160,11 @@ func (a *App) openMainWindow() {
 	win, _ := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
 	win.SetTitle("DevTray - Task Management")
 	win.SetDefaultSize(400, 500)
+	
+	cwd, _ := os.Getwd()
+	iconPath := filepath.Join(cwd, "assets", "icon.jpg")
+	win.SetIconFromFile(iconPath)
+	
 	win.Connect("delete-event", func() bool {
 		a.mainWindow = nil
 		return false // destroy
