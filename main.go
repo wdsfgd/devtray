@@ -214,16 +214,18 @@ func (a *App) openTaskDialog(parent *gtk.Window, title string, existingTask *Tas
 		return entry
 	}
 
-	nameStr, cmdStr, dirStr := "", "", "."
+	nameStr, cmdStr, dirStr, groupStr := "", "", ".", ""
 	if existingTask != nil {
 		nameStr = existingTask.Name
 		cmdStr = existingTask.Command
 		dirStr = existingTask.WorkingDirectory
+		groupStr = existingTask.Group
 	}
 
 	entryName := addInput("Task Name:", nameStr)
 	entryCmd := addInput("Command:", cmdStr)
 	entryDir := addInput("Working Directory:", dirStr)
+	entryGroup := addInput("Group (Optional):", groupStr)
 
 	dialog.ShowAll()
 	response := dialog.Run()
@@ -232,9 +234,10 @@ func (a *App) openTaskDialog(parent *gtk.Window, title string, existingTask *Tas
 		n, _ := entryName.GetText()
 		c, _ := entryCmd.GetText()
 		d, _ := entryDir.GetText()
+		g, _ := entryGroup.GetText()
 		
 		if n != "" && c != "" {
-			newTask := &Task{Name: n, Command: c, WorkingDirectory: d}
+			newTask := &Task{Name: n, Command: c, WorkingDirectory: d, Group: g}
 			if existingTask == nil {
 				a.tm.AddTask(newTask)
 			} else {

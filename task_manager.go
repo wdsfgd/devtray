@@ -12,6 +12,7 @@ type Task struct {
 	Name             string `json:"name"`
 	Command          string `json:"command"`
 	WorkingDirectory string `json:"working_directory"`
+	Group            string `json:"group,omitempty"`
 }
 
 type TaskManager struct {
