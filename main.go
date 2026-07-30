@@ -48,9 +48,11 @@ func (a *App) buildMenu() {
 	} else {
 		for _, t := range a.tm.Tasks {
 			task := t // capture for closure
-			label := "▶️ Start " + task.Name
+			var label string
 			if a.tm.IsRunning(task) {
-				label = "🛑 Stop " + task.Name
+				label = "Stop: " + task.Name
+			} else {
+				label = "Start: " + task.Name
 			}
 			item, _ := gtk.MenuItemNewWithLabel(label)
 			item.Connect("activate", func() {
@@ -143,20 +145,29 @@ func (a *App) updateMainWindow() {
 		box, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 10)
 		box.SetBorderWidth(5)
 
-		status := "🔴 "
+		var iconName string
 		if a.tm.IsRunning(task) {
-			status = "🟢 "
+			iconName = "media-record" // Running indicator
+		} else {
+			iconName = "media-playback-stop" // Stopped indicator
 		}
-		lbl, _ := gtk.LabelNew(status + task.Name)
+		imgStatus, _ := gtk.ImageNewFromIconName(iconName, gtk.ICON_SIZE_BUTTON)
+		box.PackStart(imgStatus, false, false, 0)
+
+		lbl, _ := gtk.LabelNew(task.Name)
 		lbl.SetXAlign(0)
 		box.PackStart(lbl, true, true, 0)
 
-		btnToggle, _ := gtk.ButtonNewWithLabel(func() string {
-			if a.tm.IsRunning(task) {
-				return "Stop"
-			}
-			return "Start"
-		}())
+		btnToggle, _ := gtk.ButtonNew()
+		var btnIcon string
+		if a.tm.IsRunning(task) {
+			btnIcon = "media-playback-stop"
+		} else {
+			btnIcon = "media-playback-start"
+		}
+		btnImg, _ := gtk.ImageNewFromIconName(btnIcon, gtk.ICON_SIZE_BUTTON)
+		btnToggle.SetImage(btnImg)
+		btnToggle.SetTooltipText("Start/Stop Task")
 		btnToggle.Connect("clicked", func() {
 			if a.tm.IsRunning(task) {
 				a.tm.StopTask(task)
