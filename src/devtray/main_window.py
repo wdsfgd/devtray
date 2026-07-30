@@ -77,8 +77,7 @@ class MainWindow(Gtk.Window):
         self.update_ui()
         
     def on_delete_event(self, widget, event):
-        self.hide()
-        return True
+        return False # Allow window to be destroyed
         
     def update_ui(self):
         for child in self.listbox.get_children():

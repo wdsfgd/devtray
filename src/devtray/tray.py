@@ -17,8 +17,8 @@ class DevTrayApp:
     def __init__(self, task_manager: TaskManager):
         self.task_manager = task_manager
         
-        # Setup Main Window
-        self.main_window = MainWindow(self.task_manager, self.build_menu)
+        # Setup Main Window lazily to save memory
+        self.main_window = None
         
         # Suppress stderr temporarily to hide the libayatana-appindicator C-level deprecation warning
         import os
@@ -77,9 +77,17 @@ class DevTrayApp:
         self.indicator.set_menu(menu)
         
     def on_open_clicked(self, widget):
+        if not self.main_window:
+            self.main_window = MainWindow(self.task_manager, self.build_menu)
+            self.main_window.connect("destroy", self.on_main_window_destroyed)
         self.main_window.update_ui()
         self.main_window.show_all()
         self.main_window.present()
+        
+    def on_main_window_destroyed(self, widget):
+        self.main_window = None
+        import gc
+        gc.collect()
         
     def on_task_toggled(self, widget, task: Task):
         if self.task_manager.is_running(task):
@@ -91,7 +99,7 @@ class DevTrayApp:
         self.build_menu()
         
         # Also update main window if it's visible
-        if self.main_window.get_visible():
+        if self.main_window and self.main_window.get_visible():
             self.main_window.update_ui()
         
     def on_quit_clicked(self, widget):
