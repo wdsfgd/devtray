@@ -99,6 +99,16 @@ func (tm *TaskManager) StartTask(task *Task) {
 	cwd := task.WorkingDirectory
 	if cwd == "" {
 		cwd, _ = os.Getwd()
+	} else {
+		cwd = os.ExpandEnv(cwd)
+		if len(cwd) > 0 && cwd[0] == '~' {
+			home, _ := os.UserHomeDir()
+			if len(cwd) == 1 {
+				cwd = home
+			} else if cwd[1] == '/' {
+				cwd = filepath.Join(home, cwd[2:])
+			}
+		}
 	}
 
 	cmd := exec.Command("sh", "-c", task.Command)
