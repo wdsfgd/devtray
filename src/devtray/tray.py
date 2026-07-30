@@ -96,13 +96,12 @@ class DevTrayApp:
         )
         
         response = dialog.run()
+        dialog.destroy()
+        
         if response == Gtk.ResponseType.YES:
             # Gracefully terminate all background processes
             self.task_manager.stop_all()
-            dialog.destroy()
             Gtk.main_quit()
-        else:
-            dialog.destroy()
             
     def run(self):
         Gtk.main()

@@ -1,9 +1,15 @@
 import os
 import json
 import time
-import tempfile
+import pytest
 from pathlib import Path
 from devtray.task_manager import Task, TaskManager
+
+@pytest.fixture
+def manager(tmp_path):
+    config_file = tmp_path / "config.json"
+    log_dir = tmp_path / "logs"
+    return TaskManager(config_path=str(config_file), log_dir=str(log_dir))
 
 def test_task_model():
     t = Task("Test Task", "echo 'hello'", "/tmp")
@@ -11,20 +17,17 @@ def test_task_model():
     assert t.command == "echo 'hello'"
     assert t.working_directory == "/tmp"
     
-def test_task_manager_load_save(tmp_path):
-    config_file = tmp_path / "config.json"
-    log_dir = tmp_path / "logs"
-    
-    # Initialize with empty config
-    manager = TaskManager(config_path=str(config_file), log_dir=str(log_dir))
+def test_task_manager_load_save(manager, tmp_path):
+    config_file = str(tmp_path / "config.json")
+    log_dir = str(tmp_path / "logs")
     
     # Add tasks
     manager.add_task(Task("Task 1", "echo 1", "/tmp"))
     manager.add_task(Task("Task 2", "echo 2", "/tmp"))
-    manager.save_config()
+    # save_config is now called automatically inside add_task
     
-    # Reload
-    manager2 = TaskManager(config_path=str(config_file), log_dir=str(log_dir))
+    # Reload in a new instance to verify it was persisted
+    manager2 = TaskManager(config_path=config_file, log_dir=log_dir)
     manager2.load_config()
     
     tasks = manager2.get_tasks()
@@ -32,12 +35,7 @@ def test_task_manager_load_save(tmp_path):
     assert tasks[0].name == "Task 1"
     assert tasks[1].command == "echo 2"
 
-def test_task_manager_start_stop(tmp_path):
-    config_file = tmp_path / "config.json"
-    log_dir = tmp_path / "logs"
-    
-    manager = TaskManager(config_path=str(config_file), log_dir=str(log_dir))
-    
+def test_task_manager_start_stop(manager, tmp_path):
     # A task that runs for 5 seconds
     task = Task("Sleep Task", "sleep 5", str(tmp_path))
     manager.add_task(task)
@@ -53,12 +51,7 @@ def test_task_manager_start_stop(tmp_path):
     time.sleep(0.1) # give it a moment to die
     assert not manager.is_running(task)
 
-def test_task_manager_logging(tmp_path):
-    config_file = tmp_path / "config.json"
-    log_dir = tmp_path / "logs"
-    
-    manager = TaskManager(config_path=str(config_file), log_dir=str(log_dir))
-    
+def test_task_manager_logging(manager, tmp_path):
     # A task that outputs to stdout
     task = Task("Echo Task", "echo 'hello devtray'", str(tmp_path))
     manager.add_task(task)
@@ -68,7 +61,7 @@ def test_task_manager_logging(tmp_path):
     
     assert not manager.is_running(task)
     
-    log_file = log_dir / "Echo Task.log"
+    log_file = Path(manager.log_dir) / "Echo Task.log"
     assert log_file.exists()
     
     content = log_file.read_text().strip()

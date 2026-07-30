@@ -4,15 +4,15 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 from devtray.task_manager import TaskManager, Task
 
-class AddTaskDialog(Gtk.Dialog):
-    def __init__(self, parent):
+class TaskDialog(Gtk.Dialog):
+    def __init__(self, parent, title="Tambah Task", existing_task: Task = None):
         super().__init__(
-            title="Tambah Task",
+            title=title,
             parent=parent,
             flags=0,
             buttons=(
                 Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-                Gtk.STOCK_ADD, Gtk.ResponseType.OK
+                Gtk.STOCK_SAVE if existing_task else Gtk.STOCK_ADD, Gtk.ResponseType.OK
             )
         )
         self.set_default_size(300, 200)
@@ -21,22 +21,18 @@ class AddTaskDialog(Gtk.Dialog):
         box = self.get_content_area()
         box.set_spacing(10)
         
-        # Name Input
-        box.pack_start(Gtk.Label(label="Nama Task:", xalign=0), False, False, 0)
-        self.entry_name = Gtk.Entry()
-        box.pack_start(self.entry_name, False, False, 0)
-        
-        # Command Input
-        box.pack_start(Gtk.Label(label="Perintah (Command):", xalign=0), False, False, 0)
-        self.entry_cmd = Gtk.Entry()
-        box.pack_start(self.entry_cmd, False, False, 0)
-        
-        # Directory Input
-        box.pack_start(Gtk.Label(label="Working Directory:", xalign=0), False, False, 0)
-        self.entry_dir = Gtk.Entry(text=".")
-        box.pack_start(self.entry_dir, False, False, 0)
+        # Use helper method to reduce duplicated code
+        self.entry_name = self._add_input_row(box, "Nama Task:", existing_task.name if existing_task else "")
+        self.entry_cmd = self._add_input_row(box, "Perintah (Command):", existing_task.command if existing_task else "")
+        self.entry_dir = self._add_input_row(box, "Working Directory:", existing_task.working_directory if existing_task else ".")
         
         self.show_all()
+
+    def _add_input_row(self, container, label_text, default_text):
+        container.pack_start(Gtk.Label(label=label_text, xalign=0), False, False, 0)
+        entry = Gtk.Entry(text=default_text)
+        container.pack_start(entry, False, False, 0)
+        return entry
 
     def get_task(self):
         return Task(
@@ -52,7 +48,6 @@ class MainWindow(Gtk.Window):
         self.task_manager = task_manager
         self.on_tasks_changed_cb = on_tasks_changed_cb
         
-        # Sembunyikan window saat tombol close (X) ditekan
         self.connect("delete-event", self.on_delete_event)
         
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -83,10 +78,9 @@ class MainWindow(Gtk.Window):
         
     def on_delete_event(self, widget, event):
         self.hide()
-        return True # Prevent destruction
+        return True
         
     def update_ui(self):
-        # Clear existing items
         for child in self.listbox.get_children():
             self.listbox.remove(child)
             
@@ -104,6 +98,11 @@ class MainWindow(Gtk.Window):
             lbl = Gtk.Label(label=f"{status} {task.name}", xalign=0)
             box.pack_start(lbl, True, True, 0)
             
+            # Edit Button
+            btn_edit = Gtk.Button(label="Edit")
+            btn_edit.connect("clicked", self.on_edit_clicked, task)
+            box.pack_start(btn_edit, False, False, 0)
+            
             # Delete Button
             btn_del = Gtk.Button(label="Hapus")
             btn_del.connect("clicked", self.on_delete_clicked, task)
@@ -115,16 +114,28 @@ class MainWindow(Gtk.Window):
         self.listbox.show_all()
         
     def on_add_clicked(self, widget):
-        dialog = AddTaskDialog(self)
+        dialog = TaskDialog(self, title="Tambah Task")
         response = dialog.run()
         
         if response == Gtk.ResponseType.OK:
             new_task = dialog.get_task()
             if new_task.name and new_task.command:
                 self.task_manager.add_task(new_task)
-                self.task_manager.save_config()
                 self.update_ui()
-                self.on_tasks_changed_cb() # Refresh tray menu
+                self.on_tasks_changed_cb()
+                
+        dialog.destroy()
+        
+    def on_edit_clicked(self, widget, task: Task):
+        dialog = TaskDialog(self, title="Edit Task", existing_task=task)
+        response = dialog.run()
+        
+        if response == Gtk.ResponseType.OK:
+            new_task = dialog.get_task()
+            if new_task.name and new_task.command:
+                self.task_manager.update_task(task, new_task)
+                self.update_ui()
+                self.on_tasks_changed_cb()
                 
         dialog.destroy()
         
@@ -141,8 +152,7 @@ class MainWindow(Gtk.Window):
         response = dialog.run()
         if response == Gtk.ResponseType.YES:
             self.task_manager.remove_task(task)
-            self.task_manager.save_config()
             self.update_ui()
-            self.on_tasks_changed_cb() # Refresh tray menu
+            self.on_tasks_changed_cb()
             
         dialog.destroy()

@@ -1,6 +1,7 @@
 import os
 import json
 import subprocess
+import signal
 from pathlib import Path
 
 class Task:
@@ -41,8 +42,10 @@ class TaskManager:
         try:
             with open(self.config_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                self.tasks = [Task.from_dict(t) for t in data]
-        except (json.JSONDecodeError, FileNotFoundError):
+                if not isinstance(data, list):
+                    raise TypeError("Config is not a JSON array")
+                self.tasks = [Task.from_dict(t) for t in data if isinstance(t, dict)]
+        except (json.JSONDecodeError, FileNotFoundError, TypeError, AttributeError):
             self.tasks = []
             
     def save_config(self):
@@ -56,11 +59,28 @@ class TaskManager:
 
     def add_task(self, task: Task):
         self.tasks.append(task)
+        self.save_config()
         
     def remove_task(self, task: Task):
         if task in self.tasks:
             self.stop_task(task)
             self.tasks.remove(task)
+            self.save_config()
+            
+    def update_task(self, old_task: Task, new_task: Task):
+        """Update an existing task."""
+        if old_task in self.tasks:
+            idx = self.tasks.index(old_task)
+            # Ensure it's stopped before updating
+            was_running = self.is_running(old_task)
+            if was_running:
+                self.stop_task(old_task)
+                
+            self.tasks[idx] = new_task
+            self.save_config()
+            
+            if was_running:
+                self.start_task(new_task)
 
     def start_task(self, task: Task):
         if self.is_running(task):
@@ -81,7 +101,8 @@ class TaskManager:
             shell=True,
             cwd=cwd,
             stdout=log_file,
-            stderr=subprocess.STDOUT
+            stderr=subprocess.STDOUT,
+            preexec_fn=os.setsid # Create a new process group for shell=True to avoid zombies
         )
         
         self._processes[id(task)] = (process, log_file)
@@ -89,12 +110,15 @@ class TaskManager:
     def stop_task(self, task: Task):
         if id(task) in self._processes:
             process, log_file = self._processes[id(task)]
-            process.terminate() # Send SIGTERM
-            
             try:
+                # Send SIGTERM to the process group (shell and its children)
+                os.killpg(os.getpgid(process.pid), signal.SIGTERM)
                 process.wait(timeout=3)
-            except subprocess.TimeoutExpired:
-                process.kill() # Force kill if stubborn
+            except (ProcessLookupError, subprocess.TimeoutExpired):
+                try:
+                    os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
                 
             log_file.close()
             del self._processes[id(task)]
@@ -113,5 +137,6 @@ class TaskManager:
         return False
         
     def stop_all(self):
-        for task in self.tasks:
+        # Create a copy since stop_task modifies the dictionary if we iterated over it
+        for task in list(self.tasks):
             self.stop_task(task)
