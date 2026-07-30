@@ -1,15 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <rect width="512" height="512" fill="transparent"/>
-  <!-- Tray Base -->
-  <path d="M64 384 L448 384 L416 448 L96 448 Z" fill="#64748b"/>
-  <!-- Terminal Window -->
-  <rect x="96" y="96" width="320" height="256" rx="24" ry="24" fill="#1e293b"/>
-  <!-- Window Buttons -->
-  <circle cx="136" cy="136" r="12" fill="#ef4444"/>
-  <circle cx="168" cy="136" r="12" fill="#eab308"/>
-  <circle cx="200" cy="136" r="12" fill="#22c55e"/>
-  <!-- Terminal Prompt -->
-  <path d="M144 192 L192 240 L144 288" stroke="#10b981" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  <!-- Cursor -->
-  <rect x="224" y="264" width="80" height="24" fill="#10b981" rx="8" ry="8"/>
+  
+  <!-- Task 1: Amber -->
+  <circle cx="256" cy="160" r="72" fill="#fbbf24" />
+  
+  <!-- Task 2: Emerald Green -->
+  <circle cx="144" cy="224" r="72" fill="#34d399" />
+  
+  <!-- Task 3: Bright Blue -->
+  <circle cx="368" cy="224" r="72" fill="#60a5fa" />
+
+  <!-- Bright Silver Tray Box -->
+  <path d="M 80 320 L 432 320 L 368 416 L 144 416 Z" fill="#f8fafc" stroke="#cbd5e1" stroke-width="16" stroke-linejoin="round"/>
+  
+  <!-- Tray Lip/Handle -->
+  <rect x="48" y="304" width="416" height="32" rx="16" ry="16" fill="#e2e8f0" />
 </svg>
