@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"html"
 	"os"
 	"path/filepath"
@@ -9,6 +10,9 @@ import (
 	"github.com/dawidd6/go-appindicator"
 	"github.com/gotk3/gotk3/gtk"
 )
+
+//go:embed assets/icon.png
+var iconData []byte
 
 type App struct {
 	tm        *TaskManager
@@ -24,8 +28,9 @@ func main() {
 	tm := NewTaskManager()
 	app := &App{tm: tm}
 
-	cwd, _ := os.Getwd()
-	iconPath := filepath.Join(cwd, "assets", "icon.png")
+	// Extract embedded icon to a temporary file so AppIndicator and GTK can read it
+	iconPath := filepath.Join(os.TempDir(), "devtray-icon.png")
+	os.WriteFile(iconPath, iconData, 0644)
 
 	app.indicator = appindicator.New("devtray", iconPath, appindicator.CategoryApplicationStatus)
 	app.indicator.SetStatus(appindicator.StatusActive)
@@ -161,8 +166,7 @@ func (a *App) openMainWindow() {
 	win.SetTitle("DevTray - Task Management")
 	win.SetDefaultSize(400, 500)
 	
-	cwd, _ := os.Getwd()
-	iconPath := filepath.Join(cwd, "assets", "icon.png")
+	iconPath := filepath.Join(os.TempDir(), "devtray-icon.png")
 	win.SetIconFromFile(iconPath)
 	
 	win.Connect("delete-event", func() bool {
