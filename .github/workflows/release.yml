@@ -1,0 +1,38 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Trigger on version tags, e.g., v1.0.0
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libayatana-appindicator3-dev
+
+      - name: Build Binary
+        run: |
+          mkdir -p bin
+          # Ensure CGO is enabled since gotk3 requires it
+          CGO_ENABLED=1 go build -o bin/devtray
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: bin/devtray
+          generate_release_notes: true
