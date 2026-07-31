@@ -17,7 +17,7 @@ Install GTK3 and AppIndicator development headers:
 sudo apt-get install libgtk-3-dev libayatana-appindicator3-dev
 
 # Fedora
-sudo dnf install gtk3-devel libappindicator-gtk3-devel
+sudo dnf install gtk3-devel libayatana-appindicator-gtk3-devel
 ```
 
 Build the binary:
