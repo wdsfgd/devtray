@@ -20,6 +20,7 @@ type TaskManager struct {
 	logDir     string
 	Tasks      []*Task
 	processes  map[*Task]*exec.Cmd
+	OnTaskExit func(*Task)
 }
 
 func NewTaskManager() *TaskManager {
@@ -125,6 +126,9 @@ func (tm *TaskManager) StartTask(task *Task) {
 		go func() {
 			cmd.Wait()
 			f.Close()
+			if tm.OnTaskExit != nil {
+				tm.OnTaskExit(task)
+			}
 		}()
 	} else {
 		f.Close()

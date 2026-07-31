@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/dawidd6/go-appindicator"
+	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 )
 
@@ -27,6 +28,13 @@ func main() {
 
 	tm := NewTaskManager()
 	app := &App{tm: tm}
+
+	tm.OnTaskExit = func(t *Task) {
+		glib.IdleAdd(func() {
+			app.updateMainWindow()
+			app.buildMenu()
+		})
+	}
 
 	// Extract embedded icon to a temporary file so AppIndicator and GTK can read it
 	iconPath := filepath.Join(os.TempDir(), "devtray-icon.png")
