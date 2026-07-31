@@ -112,7 +112,7 @@ func (tm *TaskManager) StartTask(task *Task) {
 		}
 	}
 
-	cmd := exec.Command("sh", "-c", task.Command)
+	cmd := exec.Command("bash", "-c", task.Command)
 	cmd.Dir = cwd
 	cmd.Stdout = f
 	cmd.Stderr = f
