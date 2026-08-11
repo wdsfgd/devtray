@@ -6,11 +6,23 @@ A simple Linux system tray application for developers to manage background servi
 
 Run long-running background tasks without keeping terminal windows open. Group tasks by project, reorder them, and start/stop them instantly from the system tray. Processes are killed cleanly via process group termination, preventing detached child processes or lingering ports.
 
+## Installation (End Users)
+
+Although DevTray is distributed as a pre-compiled binary, it relies on your Linux desktop's native GUI libraries to render the system tray correctly. You must have the runtime dependencies installed on your system.
+
+Install the runtime dependencies:
+
+```bash
+# Ubuntu / Debian
+sudo apt-get install libayatana-appindicator3-1
+
+# Fedora
+sudo dnf install libayatana-appindicator-gtk3
+```
+
 ## Development & Build
 
-*(Note: End-users do not need to install anything. They can simply download the pre-compiled `devtray` binary and run it. The following instructions are strictly for developers who want to compile the application from source).*
-
-Install GTK3 and AppIndicator development headers:
+If you want to compile the application from source yourself, you will also need the development headers in addition to the runtime libraries:
 
 ```bash
 # Ubuntu / Debian
