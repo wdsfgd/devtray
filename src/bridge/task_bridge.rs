@@ -10,6 +10,21 @@ use crate::core::logs::LogBroadcaster;
 use crate::core::model::{ModelError, TaskConfig};
 use crate::core::process::ProcessManager;
 
+const ICON_BYTES: &[u8] = include_bytes!("../../assets/icon.png");
+
+pub fn extract_app_icon() -> String {
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    let cache_dir = PathBuf::from(&home).join(".cache").join("devtray");
+    let _ = std::fs::create_dir_all(&cache_dir);
+    let icon_path = cache_dir.join("devtray-icon.png");
+    let _ = std::fs::write(&icon_path, ICON_BYTES);
+
+    let temp_icon = std::env::temp_dir().join("devtray-icon.png");
+    let _ = std::fs::write(&temp_icon, ICON_BYTES);
+
+    format!("file://{}", icon_path.display())
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum BridgeError {
     #[error("Task not found: {0}")]
@@ -20,7 +35,7 @@ pub enum BridgeError {
     IoError(#[from] std::io::Error),
 }
 
-pub fn task_to_qvariant(task: &TaskConfig) -> QVariant {
+pub fn task_to_qvariant(task: &TaskConfig, is_running: bool) -> QVariant {
     let mut map = QMap::<QMapPair_QString_QVariant>::default();
     map.insert(QString::from("id"), QVariant::from(&QString::from(&task.id)));
     map.insert(QString::from("name"), QVariant::from(&QString::from(&task.name)));
@@ -31,15 +46,47 @@ pub fn task_to_qvariant(task: &TaskConfig) -> QVariant {
     );
     let group = task.group.as_deref().unwrap_or("");
     map.insert(QString::from("group"), QVariant::from(&QString::from(group)));
+    map.insert(QString::from("is_running"), QVariant::from(&is_running));
     QVariant::from(&map)
 }
 
-pub fn tasks_to_qvariant(tasks: &[TaskConfig]) -> QVariant {
+pub fn tasks_to_qvariant(tasks: &[TaskConfig], pm: Option<&ProcessManager>) -> QVariant {
     let mut list = QList::<QVariant>::default();
     for task in tasks {
-        list.append(task_to_qvariant(task));
+        let is_running = pm.map(|p| p.is_running(&task.id)).unwrap_or(false);
+        list.append(task_to_qvariant(task, is_running));
     }
     QVariant::from(&list)
+}
+
+pub fn order_tasks(tasks: &mut Vec<TaskConfig>) {
+    let mut groups: Vec<String> = tasks
+        .iter()
+        .filter_map(|t| t.group.as_deref())
+        .map(|g| g.trim().to_string())
+        .filter(|g| !g.is_empty())
+        .collect();
+    groups.sort();
+    groups.dedup();
+
+    let mut ordered: Vec<TaskConfig> = Vec::with_capacity(tasks.len());
+    for group in &groups {
+        for t in tasks.iter() {
+            if t.group.as_deref().map(|g| g.trim()) == Some(group.as_str()) {
+                ordered.push(t.clone());
+            }
+        }
+    }
+    for t in tasks.iter() {
+        let is_uncat = match &t.group {
+            None => true,
+            Some(g) => g.trim().is_empty(),
+        };
+        if is_uncat {
+            ordered.push(t.clone());
+        }
+    }
+    *tasks = ordered;
 }
 
 pub struct TaskManagerBridgeRust {
@@ -74,8 +121,9 @@ impl TaskManagerBridgeRust {
         process_manager: ProcessManager,
         broadcaster: LogBroadcaster,
     ) -> Self {
-        let tasks = config_manager.load().unwrap_or_default();
-        let tasks_variant = tasks_to_qvariant(&tasks);
+        let mut tasks = config_manager.load().unwrap_or_default();
+        order_tasks(&mut tasks);
+        let tasks_variant = tasks_to_qvariant(&tasks, Some(&process_manager));
         Self {
             tasks: tasks_variant,
             config_manager: Arc::new(config_manager),
@@ -88,6 +136,23 @@ impl TaskManagerBridgeRust {
     pub fn tasks(&self) -> Vec<TaskConfig> {
         let tasks = self.task_list.lock().unwrap();
         tasks.clone()
+    }
+
+    pub fn get_groups(&self) -> Vec<String> {
+        let tasks = self.task_list.lock().unwrap();
+        let mut groups: Vec<String> = tasks
+            .iter()
+            .filter_map(|t| t.group.as_deref())
+            .map(|g| g.trim().to_string())
+            .filter(|g| !g.is_empty())
+            .collect();
+        groups.sort();
+        groups.dedup();
+        groups
+    }
+
+    pub fn running_count(&self) -> i32 {
+        self.process_manager.running_count() as i32
     }
 
     pub fn get_task(&self, task_id: &str) -> Option<TaskConfig> {
@@ -105,6 +170,7 @@ impl TaskManagerBridgeRust {
         let task = TaskConfig::new(name, command, working_directory, group)?;
         let mut tasks = self.task_list.lock().unwrap();
         tasks.push(task.clone());
+        order_tasks(&mut tasks);
         self.config_manager.save(&tasks)?;
         Ok(task)
     }
@@ -113,6 +179,7 @@ impl TaskManagerBridgeRust {
         task.validate()?;
         let mut tasks = self.task_list.lock().unwrap();
         tasks.push(task);
+        order_tasks(&mut tasks);
         self.config_manager.save(&tasks)?;
         Ok(())
     }
@@ -154,6 +221,7 @@ impl TaskManagerBridgeRust {
         task.group = group_opt;
 
         let updated_task = task.clone();
+        order_tasks(&mut tasks);
         self.config_manager.save(&tasks)?;
         Ok(updated_task)
     }
@@ -167,6 +235,7 @@ impl TaskManagerBridgeRust {
             .ok_or_else(|| BridgeError::TaskNotFound(task.id.clone()))?;
 
         *existing = task;
+        order_tasks(&mut tasks);
         self.config_manager.save(&tasks)?;
         Ok(())
     }
@@ -208,12 +277,18 @@ impl TaskManagerBridgeRust {
             .position(|t| t.id == task_id)
             .ok_or_else(|| BridgeError::TaskNotFound(task_id.to_string()))?;
 
-        if direction < 0 && pos > 0 {
-            tasks.swap(pos, pos - 1);
-            self.config_manager.save(&tasks)?;
-            Ok(true)
-        } else if direction > 0 && pos + 1 < tasks.len() {
-            tasks.swap(pos, pos + 1);
+        let task_group = tasks[pos].group.clone();
+
+        let target_pos = if direction < 0 {
+            // Move up: find previous task in the SAME group
+            (0..pos).rev().find(|&i| tasks[i].group == task_group)
+        } else {
+            // Move down: find next task in the SAME group
+            (pos + 1..tasks.len()).find(|&i| tasks[i].group == task_group)
+        };
+
+        if let Some(target) = target_pos {
+            tasks.swap(pos, target);
             self.config_manager.save(&tasks)?;
             Ok(true)
         } else {
@@ -344,38 +419,54 @@ pub mod qobject {
         fn is_task_running(self: &TaskManagerBridge, task_id: &QString) -> bool;
 
         #[qinvokable]
+        fn running_count(self: &TaskManagerBridge) -> i32;
+
+        #[qinvokable]
+        fn get_groups(self: &TaskManagerBridge) -> QStringList;
+
+        #[qinvokable]
         fn get_recent_logs(self: &TaskManagerBridge, task_name: &QString) -> QStringList;
 
         #[qinvokable]
         fn refresh_tasks(self: Pin<&mut TaskManagerBridge>);
+
+        #[qinvokable]
+        fn stop_all(self: Pin<&mut TaskManagerBridge>);
+
+        #[qinvokable]
+        fn icon_path(self: &TaskManagerBridge) -> QString;
     }
 }
 
 impl qobject::TaskManagerBridge {
     pub fn refresh_tasks(mut self: Pin<&mut Self>) {
         let tasks = self.as_ref().rust().tasks();
-        let variant = tasks_to_qvariant(&tasks);
+        let variant = tasks_to_qvariant(&tasks, Some(&self.as_ref().rust().process_manager));
         self.as_mut().set_tasks(variant);
     }
 
-    pub fn start_task(self: Pin<&mut Self>, task_id: &QString) {
+    pub fn start_task(mut self: Pin<&mut Self>, task_id: &QString) {
         let id_str = task_id.to_string();
         let _ = self.as_ref().rust().start_task(&id_str);
+        self.as_mut().refresh_tasks();
     }
 
-    pub fn stop_task(self: Pin<&mut Self>, task_id: &QString) {
+    pub fn stop_task(mut self: Pin<&mut Self>, task_id: &QString) {
         let id_str = task_id.to_string();
         let _ = self.as_ref().rust().stop_task(&id_str);
+        self.as_mut().refresh_tasks();
     }
 
-    pub fn start_group(self: Pin<&mut Self>, group: &QString) {
+    pub fn start_group(mut self: Pin<&mut Self>, group: &QString) {
         let group_str = group.to_string();
         let _ = self.as_ref().rust().start_group(&group_str);
+        self.as_mut().refresh_tasks();
     }
 
-    pub fn stop_group(self: Pin<&mut Self>, group: &QString) {
+    pub fn stop_group(mut self: Pin<&mut Self>, group: &QString) {
         let group_str = group.to_string();
         let _ = self.as_ref().rust().stop_group(&group_str);
+        self.as_mut().refresh_tasks();
     }
 
     pub fn save_task(
@@ -428,6 +519,19 @@ impl qobject::TaskManagerBridge {
         self.rust().is_task_running(&id_str)
     }
 
+    pub fn running_count(&self) -> i32 {
+        self.rust().running_count()
+    }
+
+    pub fn get_groups(&self) -> QStringList {
+        let groups = self.rust().get_groups();
+        let mut list = QStringList::default();
+        for g in groups {
+            list.append(QString::from(&g));
+        }
+        list
+    }
+
     pub fn get_recent_logs(&self, task_name: &QString) -> QStringList {
         let name_str = task_name.to_string();
         let lines = self.rust().get_recent_logs(&name_str);
@@ -436,5 +540,14 @@ impl qobject::TaskManagerBridge {
             list.append(QString::from(&line));
         }
         list
+    }
+
+    pub fn stop_all(mut self: Pin<&mut Self>) {
+        self.as_ref().rust().stop_all();
+        self.as_mut().refresh_tasks();
+    }
+
+    pub fn icon_path(&self) -> QString {
+        QString::from(&extract_app_icon())
     }
 }

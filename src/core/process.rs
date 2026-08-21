@@ -13,10 +13,12 @@ use crate::core::logs::LogBroadcaster;
 use crate::core::model::TaskConfig;
 
 type RunningMap = Arc<Mutex<HashMap<String, u32>>>;
+type ExitCallback = Arc<Mutex<Option<Box<dyn Fn(String) + Send + Sync>>>>;
 
 pub struct ProcessManager {
     broadcaster: LogBroadcaster,
     running: RunningMap,
+    on_exit: ExitCallback,
 }
 
 impl ProcessManager {
@@ -24,12 +26,23 @@ impl ProcessManager {
         Self {
             broadcaster,
             running: Arc::new(Mutex::new(HashMap::new())),
+            on_exit: Arc::new(Mutex::new(None)),
         }
+    }
+
+    pub fn set_on_exit(&self, callback: impl Fn(String) + Send + Sync + 'static) {
+        let mut on_exit = self.on_exit.lock().unwrap();
+        *on_exit = Some(Box::new(callback));
     }
 
     pub fn is_running(&self, task_id: &str) -> bool {
         let running = self.running.lock().unwrap();
         running.contains_key(task_id)
+    }
+
+    pub fn running_count(&self) -> usize {
+        let running = self.running.lock().unwrap();
+        running.len()
     }
 
     pub fn start(&self, task: &TaskConfig) -> std::io::Result<()> {
@@ -88,13 +101,27 @@ impl ProcessManager {
 
         // Wait thread for reaping
         let running_map = Arc::clone(&self.running);
+        let on_exit_cb = Arc::clone(&self.on_exit);
         let task_id = task.id.clone();
         thread::spawn(move || {
             let _ = child.wait();
-            let mut running = running_map.lock().unwrap();
-            if let Some(&current_pid) = running.get(&task_id) {
-                if current_pid == pid {
-                    running.remove(&task_id);
+            let removed = {
+                let mut running = running_map.lock().unwrap();
+                if let Some(&current_pid) = running.get(&task_id) {
+                    if current_pid == pid {
+                        running.remove(&task_id);
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            };
+            if removed {
+                let cb_guard = on_exit_cb.lock().unwrap();
+                if let Some(cb) = cb_guard.as_ref() {
+                    cb(task_id);
                 }
             }
         });
