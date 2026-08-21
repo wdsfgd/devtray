@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import devtray 1.0
 
 ApplicationWindow {
     id: window
@@ -9,6 +10,10 @@ ApplicationWindow {
     visible: true
     title: "DevTray"
     color: "#1e1e1e"
+
+    TaskManagerBridge {
+        id: taskBridge
+    }
 
     ColumnLayout {
         anchors.fill: parent

@@ -1,5 +1,9 @@
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::sync::{Arc, Mutex};
+
+use cxx_qt::CxxQtType;
+use cxx_qt_lib::{QList, QMap, QMapPair_QString_QVariant, QString, QStringList, QVariant};
 
 use crate::core::config::ConfigManager;
 use crate::core::logs::LogBroadcaster;
@@ -16,21 +20,38 @@ pub enum BridgeError {
     IoError(#[from] std::io::Error),
 }
 
-pub struct TaskManagerBridge {
-    config_manager: ConfigManager,
-    process_manager: ProcessManager,
-    broadcaster: LogBroadcaster,
-    tasks: Arc<Mutex<Vec<TaskConfig>>>,
+pub fn task_to_qvariant(task: &TaskConfig) -> QVariant {
+    let mut map = QMap::<QMapPair_QString_QVariant>::default();
+    map.insert(QString::from("id"), QVariant::from(&QString::from(&task.id)));
+    map.insert(QString::from("name"), QVariant::from(&QString::from(&task.name)));
+    map.insert(QString::from("command"), QVariant::from(&QString::from(&task.command)));
+    map.insert(
+        QString::from("working_directory"),
+        QVariant::from(&QString::from(&task.working_directory)),
+    );
+    let group = task.group.as_deref().unwrap_or("");
+    map.insert(QString::from("group"), QVariant::from(&QString::from(group)));
+    QVariant::from(&map)
 }
 
-impl Default for TaskManagerBridge {
-    fn default() -> Self {
-        Self::new()
+pub fn tasks_to_qvariant(tasks: &[TaskConfig]) -> QVariant {
+    let mut list = QList::<QVariant>::default();
+    for task in tasks {
+        list.append(task_to_qvariant(task));
     }
+    QVariant::from(&list)
 }
 
-impl TaskManagerBridge {
-    pub fn new() -> Self {
+pub struct TaskManagerBridgeRust {
+    pub tasks: QVariant,
+    pub(crate) config_manager: Arc<ConfigManager>,
+    pub(crate) process_manager: Arc<ProcessManager>,
+    pub(crate) broadcaster: LogBroadcaster,
+    pub(crate) task_list: Arc<Mutex<Vec<TaskConfig>>>,
+}
+
+impl Default for TaskManagerBridgeRust {
+    fn default() -> Self {
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
         let log_dir = PathBuf::from(&home)
             .join(".cache")
@@ -41,6 +62,12 @@ impl TaskManagerBridge {
         let config_manager = ConfigManager::new();
         Self::with_managers(config_manager, process_manager, broadcaster)
     }
+}
+
+impl TaskManagerBridgeRust {
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     pub fn with_managers(
         config_manager: ConfigManager,
@@ -48,21 +75,23 @@ impl TaskManagerBridge {
         broadcaster: LogBroadcaster,
     ) -> Self {
         let tasks = config_manager.load().unwrap_or_default();
+        let tasks_variant = tasks_to_qvariant(&tasks);
         Self {
-            config_manager,
-            process_manager,
+            tasks: tasks_variant,
+            config_manager: Arc::new(config_manager),
+            process_manager: Arc::new(process_manager),
             broadcaster,
-            tasks: Arc::new(Mutex::new(tasks)),
+            task_list: Arc::new(Mutex::new(tasks)),
         }
     }
 
     pub fn tasks(&self) -> Vec<TaskConfig> {
-        let tasks = self.tasks.lock().unwrap();
+        let tasks = self.task_list.lock().unwrap();
         tasks.clone()
     }
 
     pub fn get_task(&self, task_id: &str) -> Option<TaskConfig> {
-        let tasks = self.tasks.lock().unwrap();
+        let tasks = self.task_list.lock().unwrap();
         tasks.iter().find(|t| t.id == task_id).cloned()
     }
 
@@ -74,7 +103,7 @@ impl TaskManagerBridge {
         group: Option<&str>,
     ) -> Result<TaskConfig, BridgeError> {
         let task = TaskConfig::new(name, command, working_directory, group)?;
-        let mut tasks = self.tasks.lock().unwrap();
+        let mut tasks = self.task_list.lock().unwrap();
         tasks.push(task.clone());
         self.config_manager.save(&tasks)?;
         Ok(task)
@@ -82,7 +111,7 @@ impl TaskManagerBridge {
 
     pub fn add_task_config(&self, task: TaskConfig) -> Result<(), BridgeError> {
         task.validate()?;
-        let mut tasks = self.tasks.lock().unwrap();
+        let mut tasks = self.task_list.lock().unwrap();
         tasks.push(task);
         self.config_manager.save(&tasks)?;
         Ok(())
@@ -113,7 +142,7 @@ impl TaskManagerBridge {
             .map(|g| g.trim().to_string())
             .filter(|g| !g.is_empty());
 
-        let mut tasks = self.tasks.lock().unwrap();
+        let mut tasks = self.task_list.lock().unwrap();
         let task = tasks
             .iter_mut()
             .find(|t| t.id == id)
@@ -131,7 +160,7 @@ impl TaskManagerBridge {
 
     pub fn update_task_config(&self, task: TaskConfig) -> Result<(), BridgeError> {
         task.validate()?;
-        let mut tasks = self.tasks.lock().unwrap();
+        let mut tasks = self.task_list.lock().unwrap();
         let existing = tasks
             .iter_mut()
             .find(|t| t.id == task.id)
@@ -158,10 +187,9 @@ impl TaskManagerBridge {
     }
 
     pub fn delete_task(&self, task_id: &str) -> Result<(), BridgeError> {
-        // Stop the task if running
         let _ = self.process_manager.stop(task_id);
 
-        let mut tasks = self.tasks.lock().unwrap();
+        let mut tasks = self.task_list.lock().unwrap();
         let initial_len = tasks.len();
         tasks.retain(|t| t.id != task_id);
 
@@ -174,7 +202,7 @@ impl TaskManagerBridge {
     }
 
     pub fn move_task(&self, task_id: &str, direction: i32) -> Result<bool, BridgeError> {
-        let mut tasks = self.tasks.lock().unwrap();
+        let mut tasks = self.task_list.lock().unwrap();
         let pos = tasks
             .iter()
             .position(|t| t.id == task_id)
@@ -195,7 +223,7 @@ impl TaskManagerBridge {
 
     pub fn start_task(&self, task_id: &str) -> Result<(), BridgeError> {
         let task = {
-            let tasks = self.tasks.lock().unwrap();
+            let tasks = self.task_list.lock().unwrap();
             tasks
                 .iter()
                 .find(|t| t.id == task_id)
@@ -214,7 +242,7 @@ impl TaskManagerBridge {
 
     pub fn start_group(&self, group: &str) -> Result<(), BridgeError> {
         let tasks_to_start = {
-            let tasks = self.tasks.lock().unwrap();
+            let tasks = self.task_list.lock().unwrap();
             tasks
                 .iter()
                 .filter(|t| t.group.as_deref() == Some(group))
@@ -230,7 +258,7 @@ impl TaskManagerBridge {
 
     pub fn stop_group(&self, group: &str) -> Result<(), BridgeError> {
         let task_ids_to_stop = {
-            let tasks = self.tasks.lock().unwrap();
+            let tasks = self.task_list.lock().unwrap();
             tasks
                 .iter()
                 .filter(|t| t.group.as_deref() == Some(group))
@@ -258,5 +286,155 @@ impl TaskManagerBridge {
 
     pub fn stop_all(&self) {
         self.process_manager.stop_all();
+    }
+}
+
+pub type TaskManagerBridge = TaskManagerBridgeRust;
+
+#[cxx_qt::bridge]
+pub mod qobject {
+    unsafe extern "C++" {
+        include!("cxx-qt-lib/qstring.h");
+        type QString = cxx_qt_lib::QString;
+        include!("cxx-qt-lib/qstringlist.h");
+        type QStringList = cxx_qt_lib::QStringList;
+        include!("cxx-qt-lib/qvariant.h");
+        type QVariant = cxx_qt_lib::QVariant;
+    }
+
+    #[auto_cxx_name]
+    extern "RustQt" {
+        #[qobject]
+        #[qml_element]
+        #[qproperty(QVariant, tasks)]
+        type TaskManagerBridge = super::TaskManagerBridgeRust;
+    }
+
+    #[auto_cxx_name]
+    unsafe extern "RustQt" {
+        #[qinvokable]
+        fn start_task(self: Pin<&mut TaskManagerBridge>, task_id: &QString);
+
+        #[qinvokable]
+        fn stop_task(self: Pin<&mut TaskManagerBridge>, task_id: &QString);
+
+        #[qinvokable]
+        fn start_group(self: Pin<&mut TaskManagerBridge>, group: &QString);
+
+        #[qinvokable]
+        fn stop_group(self: Pin<&mut TaskManagerBridge>, group: &QString);
+
+        #[qinvokable]
+        fn save_task(
+            self: Pin<&mut TaskManagerBridge>,
+            id: &QString,
+            name: &QString,
+            command: &QString,
+            working_dir: &QString,
+            group: &QString,
+        );
+
+        #[qinvokable]
+        fn delete_task(self: Pin<&mut TaskManagerBridge>, task_id: &QString);
+
+        #[qinvokable]
+        fn move_task(self: Pin<&mut TaskManagerBridge>, task_id: &QString, direction: i32) -> bool;
+
+        #[qinvokable]
+        fn is_task_running(self: &TaskManagerBridge, task_id: &QString) -> bool;
+
+        #[qinvokable]
+        fn get_recent_logs(self: &TaskManagerBridge, task_name: &QString) -> QStringList;
+
+        #[qinvokable]
+        fn refresh_tasks(self: Pin<&mut TaskManagerBridge>);
+    }
+}
+
+impl qobject::TaskManagerBridge {
+    pub fn refresh_tasks(mut self: Pin<&mut Self>) {
+        let tasks = self.as_ref().rust().tasks();
+        let variant = tasks_to_qvariant(&tasks);
+        self.as_mut().set_tasks(variant);
+    }
+
+    pub fn start_task(self: Pin<&mut Self>, task_id: &QString) {
+        let id_str = task_id.to_string();
+        let _ = self.as_ref().rust().start_task(&id_str);
+    }
+
+    pub fn stop_task(self: Pin<&mut Self>, task_id: &QString) {
+        let id_str = task_id.to_string();
+        let _ = self.as_ref().rust().stop_task(&id_str);
+    }
+
+    pub fn start_group(self: Pin<&mut Self>, group: &QString) {
+        let group_str = group.to_string();
+        let _ = self.as_ref().rust().start_group(&group_str);
+    }
+
+    pub fn stop_group(self: Pin<&mut Self>, group: &QString) {
+        let group_str = group.to_string();
+        let _ = self.as_ref().rust().stop_group(&group_str);
+    }
+
+    pub fn save_task(
+        mut self: Pin<&mut Self>,
+        id: &QString,
+        name: &QString,
+        command: &QString,
+        working_dir: &QString,
+        group: &QString,
+    ) {
+        let id_str = id.to_string();
+        let name_str = name.to_string();
+        let cmd_str = command.to_string();
+        let dir_str = working_dir.to_string();
+        let group_str = group.to_string();
+        let group_opt = if group_str.is_empty() {
+            None
+        } else {
+            Some(group_str.as_str())
+        };
+
+        let _ = self
+            .as_ref()
+            .rust()
+            .save_task(&id_str, &name_str, &cmd_str, &dir_str, group_opt);
+        self.as_mut().refresh_tasks();
+    }
+
+    pub fn delete_task(mut self: Pin<&mut Self>, task_id: &QString) {
+        let id_str = task_id.to_string();
+        let _ = self.as_ref().rust().delete_task(&id_str);
+        self.as_mut().refresh_tasks();
+    }
+
+    pub fn move_task(mut self: Pin<&mut Self>, task_id: &QString, direction: i32) -> bool {
+        let id_str = task_id.to_string();
+        let res = self
+            .as_ref()
+            .rust()
+            .move_task(&id_str, direction)
+            .unwrap_or(false);
+        if res {
+            self.as_mut().refresh_tasks();
+        }
+        res
+    }
+
+    pub fn is_task_running(&self, task_id: &QString) -> bool {
+        let id_str = task_id.to_string();
+        self.rust().is_task_running(&id_str)
+    }
+
+    pub fn get_recent_logs(&self, task_name: &QString) -> QStringList {
+        let name_str = task_name.to_string();
+        let lines = self.rust().get_recent_logs(&name_str);
+        let mut list = QStringList::default();
+        for line in lines {
+            list.append(QString::from(&line));
+        }
+        list
     }
 }

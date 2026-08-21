@@ -1,19 +1,14 @@
-use devtray::bridge::TaskManagerBridge;
-use devtray::core::config::ConfigManager;
-use devtray::core::logs::LogBroadcaster;
-use devtray::core::process::ProcessManager;
-use std::path::PathBuf;
+use cxx_qt_lib::{QGuiApplication, QQmlApplicationEngine, QUrl};
 
 fn main() {
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-    let log_dir = PathBuf::from(&home)
-        .join(".cache")
-        .join("devtray")
-        .join("logs");
-    let broadcaster = LogBroadcaster::new(log_dir, 1000);
-    let process_manager = ProcessManager::new(broadcaster.clone());
-    let config_manager = ConfigManager::new();
-    let _bridge = TaskManagerBridge::with_managers(config_manager, process_manager, broadcaster);
+    let mut app = QGuiApplication::new();
+    let mut engine = QQmlApplicationEngine::new();
 
-    println!("DevTray initialized successfully.");
+    if let Some(engine) = engine.as_mut() {
+        engine.load(&QUrl::from("qrc:/qt/qml/devtray/qml/MainWindow.qml"));
+    }
+
+    if let Some(app) = app.as_mut() {
+        app.exec();
+    }
 }
