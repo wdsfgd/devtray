@@ -117,3 +117,22 @@ fn test_zero_capacity_ring_buffer() {
     let content = fs::read_to_string(log_file).unwrap();
     assert_eq!(content, "line 0\n");
 }
+
+#[test]
+fn test_cached_file_handle_verbose_logging() {
+    let dir = tempdir().unwrap();
+    let broadcaster = LogBroadcaster::new(dir.path().to_path_buf(), 500);
+
+    for i in 0..500 {
+        broadcaster
+            .append("verbose-task", &format!("verbose log line {}", i))
+            .unwrap();
+    }
+
+    let log_file = dir.path().join("verbose-task.log");
+    assert!(log_file.exists());
+    let content = fs::read_to_string(log_file).unwrap();
+    let line_count = content.lines().count();
+    assert_eq!(line_count, 500);
+}
+

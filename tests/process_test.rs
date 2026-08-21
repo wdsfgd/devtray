@@ -142,3 +142,28 @@ fn test_start_and_stop_idempotence() {
     // Stopping again should be a no-op
     assert!(pm.stop(&task.id).is_ok());
 }
+
+#[test]
+fn test_rapid_restart_reaper_synchronization() {
+    let dir = tempdir().unwrap();
+    let broadcaster = LogBroadcaster::new(dir.path().to_path_buf(), 100);
+    let pm = ProcessManager::new(broadcaster);
+
+    let task = TaskConfig::new("Rapid", "sleep 10", ".", None).unwrap();
+    pm.start(&task).expect("initial start should succeed");
+    std::thread::sleep(Duration::from_millis(50));
+    assert!(pm.is_running(&task.id));
+
+    // Rapid stop and restart
+    pm.stop(&task.id).expect("stop should succeed");
+    pm.start(&task).expect("rapid restart should succeed");
+
+    // Wait long enough for the previous reaper thread to finish
+    std::thread::sleep(Duration::from_millis(200));
+
+    // The restarted task should STILL be running (not reaped by the first process exit)
+    assert!(pm.is_running(&task.id));
+
+    pm.stop(&task.id).expect("final stop should succeed");
+}
+
