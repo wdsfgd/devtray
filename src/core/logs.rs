@@ -1,6 +1,6 @@
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use std::collections::{HashMap, VecDeque};
-use std::fs::{self, OpenOptions};
+use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -11,6 +11,7 @@ pub struct LogBroadcaster {
     max_history: usize,
     buffers: Arc<Mutex<HashMap<String, VecDeque<String>>>>,
     senders: Arc<Mutex<HashMap<String, Vec<Sender<String>>>>>,
+    files: Arc<Mutex<HashMap<String, File>>>,
 }
 
 impl LogBroadcaster {
@@ -20,17 +21,28 @@ impl LogBroadcaster {
             max_history,
             buffers: Arc::new(Mutex::new(HashMap::new())),
             senders: Arc::new(Mutex::new(HashMap::new())),
+            files: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
     pub fn append(&self, task_name: &str, line: &str) -> std::io::Result<()> {
-        fs::create_dir_all(&self.log_dir)?;
-        let log_file = self.log_dir.join(format!("{}.log", task_name));
-        let mut file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(log_file)?;
-        writeln!(file, "{}", line)?;
+        // Write to cached file handle
+        {
+            let mut files = self.files.lock().unwrap();
+            if !files.contains_key(task_name) {
+                fs::create_dir_all(&self.log_dir)?;
+                let log_file = self.log_dir.join(format!("{}.log", task_name));
+                let file = OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(log_file)?;
+                files.insert(task_name.to_string(), file);
+            }
+            if let Some(file) = files.get_mut(task_name) {
+                writeln!(file, "{}", line)?;
+                file.flush()?;
+            }
+        }
 
         // Update in-memory ring buffer
         if self.max_history > 0 {

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 use std::os::unix::process::CommandExt;
-use std::process::{Child, Command, Stdio};
+use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -12,8 +12,7 @@ use crate::core::config::ConfigManager;
 use crate::core::logs::LogBroadcaster;
 use crate::core::model::TaskConfig;
 
-type ChildHandle = Arc<Mutex<Option<Child>>>;
-type RunningMap = Arc<Mutex<HashMap<String, (u32, ChildHandle)>>>;
+type RunningMap = Arc<Mutex<HashMap<String, u32>>>;
 
 pub struct ProcessManager {
     broadcaster: LogBroadcaster,
@@ -58,10 +57,9 @@ impl ProcessManager {
         let stdout = child.stdout.take();
         let stderr = child.stderr.take();
 
-        let child_arc = Arc::new(Mutex::new(Some(child)));
         {
             let mut running = self.running.lock().unwrap();
-            running.insert(task.id.clone(), (pid, Arc::clone(&child_arc)));
+            running.insert(task.id.clone(), pid);
         }
 
         // Stream stdout
@@ -92,38 +90,29 @@ impl ProcessManager {
         let running_map = Arc::clone(&self.running);
         let task_id = task.id.clone();
         thread::spawn(move || {
-            let child_opt = {
-                let mut child_guard = child_arc.lock().unwrap();
-                child_guard.take()
-            };
-            if let Some(mut child) = child_opt {
-                let _ = child.wait();
-            }
+            let _ = child.wait();
             let mut running = running_map.lock().unwrap();
-            running.remove(&task_id);
+            if let Some(&current_pid) = running.get(&task_id) {
+                if current_pid == pid {
+                    running.remove(&task_id);
+                }
+            }
         });
 
         Ok(())
     }
 
     pub fn stop(&self, task_id: &str) -> std::io::Result<()> {
-        let (pid, child_arc) = {
+        let pid = {
             let mut running = self.running.lock().unwrap();
             match running.remove(task_id) {
-                Some(entry) => entry,
+                Some(pid) => pid,
                 None => return Ok(()),
             }
         };
 
         // Send SIGKILL to the entire process group (-pid)
         let _ = kill(Pid::from_raw(-(pid as i32)), Signal::SIGKILL);
-
-        if let Ok(mut guard) = child_arc.lock() {
-            if let Some(mut child) = guard.take() {
-                let _ = child.kill();
-                let _ = child.wait();
-            }
-        }
 
         Ok(())
     }
