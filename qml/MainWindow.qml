@@ -16,24 +16,24 @@ ApplicationWindow {
 
     TaskManagerBridge {
         id: taskBridge
-        onTasksChanged: {
-            window.rebuildTrayMenu()
-        }
     }
 
     Component.onCompleted: {
         taskBridge.refreshTasks()
-        window.rebuildTrayMenu()
     }
 
     onClosing: function(close) {
-        close.accepted = false
-        window.hide()
+        if (systemTray && systemTray.available) {
+            close.accepted = false
+            window.hide()
+        } else {
+            taskBridge.stopAll()
+            close.accepted = true
+        }
     }
 
     function refreshAll() {
         taskBridge.refreshTasks()
-        window.rebuildTrayMenu()
     }
 
     // Periodic sync timer to update running states
@@ -52,7 +52,7 @@ ApplicationWindow {
         visible: true
         icon.source: taskBridge.iconPath()
         tooltip: {
-            var count = taskBridge.runningCount()
+            var count = taskBridge ? taskBridge.runningCount() : 0
             return count > 0 ? ("DevTray (" + count + " active)") : "DevTray"
         }
 
@@ -64,148 +64,28 @@ ApplicationWindow {
 
         menu: Labs.Menu {
             id: trayMenu
-        }
-    }
 
-    function rebuildTrayMenu() {
-        trayMenu.clear()
-
-        // Open Main Window Item
-        var openItem = Qt.createQmlObject('import Qt.labs.platform 1.1 as Labs; Labs.MenuItem {}', trayMenu)
-        openItem.text = "Open Main Window"
-        openItem.triggered.connect(function() {
-            window.show()
-            window.raise()
-            window.requestActivate()
-        })
-        trayMenu.addItem(openItem)
-
-        // Separator
-        var sep1 = Qt.createQmlObject('import Qt.labs.platform 1.1 as Labs; Labs.MenuSeparator {}', trayMenu)
-        trayMenu.addItem(sep1)
-
-        var tasks = taskBridge ? taskBridge.tasks : []
-        if (!tasks || tasks.length === 0) {
-            var emptyItem = Qt.createQmlObject('import Qt.labs.platform 1.1 as Labs; Labs.MenuItem {}', trayMenu)
-            emptyItem.text = "No Tasks Available"
-            emptyItem.enabled = false
-            trayMenu.addItem(emptyItem)
-        } else {
-            var groups = {}
-            var uncategorized = []
-            var groupNames = []
-
-            for (var i = 0; i < tasks.length; i++) {
-                var t = tasks[i]
-                var g = t.group ? t.group.trim() : ""
-                if (g !== "") {
-                    if (!groups[g]) {
-                        groups[g] = []
-                        groupNames.push(g)
-                    }
-                    groups[g].push(t)
-                } else {
-                    uncategorized.push(t)
+            Labs.MenuItem {
+                text: "Open Window"
+                onTriggered: {
+                    window.show()
+                    window.raise()
+                    window.requestActivate()
                 }
             }
-            groupNames.sort()
 
-            // Build Group Submenus
-            for (var gi = 0; gi < groupNames.length; gi++) {
-                var gName = groupNames[gi]
-                var gTasks = groups[gName]
+            Labs.MenuSeparator {}
 
-                var subMenu = Qt.createQmlObject('import Qt.labs.platform 1.1 as Labs; Labs.Menu {}', trayMenu)
-                subMenu.title = gName
-
-                // ▶️ Start All
-                var startAllItem = Qt.createQmlObject('import Qt.labs.platform 1.1 as Labs; Labs.MenuItem {}', subMenu)
-                startAllItem.text = "▶️ Start All"
-                ;(function(group) {
-                    startAllItem.triggered.connect(function() {
-                        taskBridge.startGroup(group)
-                        window.refreshAll()
-                    })
-                })(gName)
-                subMenu.addItem(startAllItem)
-
-                // 🛑 Stop All
-                var stopAllItem = Qt.createQmlObject('import Qt.labs.platform 1.1 as Labs; Labs.MenuItem {}', subMenu)
-                stopAllItem.text = "🛑 Stop All"
-                ;(function(group) {
-                    stopAllItem.triggered.connect(function() {
-                        taskBridge.stopGroup(group)
-                        window.refreshAll()
-                    })
-                })(gName)
-                subMenu.addItem(stopAllItem)
-
-                var subSep = Qt.createQmlObject('import Qt.labs.platform 1.1 as Labs; Labs.MenuSeparator {}', subMenu)
-                subMenu.addItem(subSep)
-
-                // Task items in group
-                for (var ti = 0; ti < gTasks.length; ti++) {
-                    var task = gTasks[ti]
-                    var taskItem = Qt.createQmlObject('import Qt.labs.platform 1.1 as Labs; Labs.MenuItem {}', subMenu)
-                    taskItem.text = task.name
-                    taskItem.checkable = true
-                    taskItem.checked = taskBridge.isTaskRunning(task.id)
-                    ;(function(taskId) {
-                        taskItem.triggered.connect(function() {
-                            if (taskBridge.isTaskRunning(taskId)) {
-                                taskBridge.stopTask(taskId)
-                            } else {
-                                taskBridge.startTask(taskId)
-                            }
-                            window.refreshAll()
-                        })
-                    })(task.id)
-                    subMenu.addItem(taskItem)
+            Labs.MenuItem {
+                text: "Quit"
+                onTriggered: {
+                    window.show()
+                    window.raise()
+                    window.requestActivate()
+                    quitConfirmDialog.open()
                 }
-
-                trayMenu.addMenu(subMenu)
-            }
-
-            if (groupNames.length > 0 && uncategorized.length > 0) {
-                var sepUncat = Qt.createQmlObject('import Qt.labs.platform 1.1 as Labs; Labs.MenuSeparator {}', trayMenu)
-                trayMenu.addItem(sepUncat)
-            }
-
-            // Uncategorized tasks
-            for (var ui = 0; ui < uncategorized.length; ui++) {
-                var uTask = uncategorized[ui]
-                var uItem = Qt.createQmlObject('import Qt.labs.platform 1.1 as Labs; Labs.MenuItem {}', trayMenu)
-                uItem.text = uTask.name
-                uItem.checkable = true
-                uItem.checked = taskBridge.isTaskRunning(uTask.id)
-                ;(function(taskId) {
-                    uItem.triggered.connect(function() {
-                        if (taskBridge.isTaskRunning(taskId)) {
-                            taskBridge.stopTask(taskId)
-                        } else {
-                            taskBridge.startTask(taskId)
-                        }
-                        window.refreshAll()
-                    })
-                })(uTask.id)
-                trayMenu.addItem(uItem)
             }
         }
-
-        // Separator
-        var sep2 = Qt.createQmlObject('import Qt.labs.platform 1.1 as Labs; Labs.MenuSeparator {}', trayMenu)
-        trayMenu.addItem(sep2)
-
-        // Quit DevTray
-        var quitItem = Qt.createQmlObject('import Qt.labs.platform 1.1 as Labs; Labs.MenuItem {}', trayMenu)
-        quitItem.text = "Quit DevTray"
-        quitItem.triggered.connect(function() {
-            window.show()
-            window.raise()
-            window.requestActivate()
-            quitConfirmDialog.open()
-        })
-        trayMenu.addItem(quitItem)
     }
 
     // Main UI Layout
@@ -259,110 +139,112 @@ ApplicationWindow {
         }
 
         // Task List
-        ScrollView {
-            id: scrollView
+        ListView {
+            id: taskListView
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
+            spacing: 4
+            model: taskBridge ? taskBridge.tasks : []
+            boundsBehavior: Flickable.StopAtBounds
 
-            ListView {
-                id: taskListView
-                anchors.fill: parent
-                spacing: 4
-                model: taskBridge ? taskBridge.tasks : []
+            ScrollBar.vertical: ScrollBar {
+                id: vbar
+                active: true
+                policy: ScrollBar.AsNeeded
+                width: 6
+            }
 
-                // Section Headers (Hermes & OmniRoute, Uncategorized)
-                section.property: "group"
-                section.criteria: ViewSection.FullString
-                section.delegate: Component {
-                    Item {
-                        width: taskListView.width
-                        height: 32
-
-                        Text {
-                            anchors.left: parent.left
-                            anchors.leftMargin: 2
-                            anchors.bottom: parent.bottom
-                            anchors.bottomMargin: 5
-                            text: section !== "" ? section : "Uncategorized"
-                            color: "#ffffff"
-                            font.bold: true
-                            font.pixelSize: 13
-                        }
-                    }
-                }
-
-                delegate: TaskCard {
-                    width: taskListView.width
-                    task: modelData
-                    isRunning: modelData.is_running !== undefined ? modelData.is_running : (taskBridge ? taskBridge.isTaskRunning(modelData.id) : false)
-
-                    onToggleClicked: {
-                        if (isRunning) {
-                            taskBridge.stopTask(modelData.id)
-                        } else {
-                            taskBridge.startTask(modelData.id)
-                        }
-                        window.refreshAll()
-                    }
-
-                    onLogsClicked: {
-                        logViewer.taskName = modelData.name
-                        logViewer.open()
-                    }
-
-                    onEditClicked: {
-                        taskDialog.taskId = modelData.id
-                        taskDialog.taskName = modelData.name
-                        taskDialog.command = modelData.command
-                        taskDialog.workingDir = modelData.working_directory
-                        taskDialog.group = modelData.group || ""
-                        taskDialog.open()
-                    }
-
-                    onMoveUpClicked: {
-                        taskBridge.moveTask(modelData.id, -1)
-                        window.refreshAll()
-                    }
-
-                    onMoveDownClicked: {
-                        taskBridge.moveTask(modelData.id, 1)
-                        window.refreshAll()
-                    }
-
-                    onDeleteClicked: {
-                        deleteConfirmDialog.contextData = modelData.id
-                        deleteConfirmDialog.message = "Delete task '" + modelData.name + "'?"
-                        deleteConfirmDialog.subMessage = "This will stop the task if running and delete it."
-                        deleteConfirmDialog.open()
-                    }
-                }
-
-                // Empty State
+            // Section Headers
+            section.property: "group"
+            section.criteria: ViewSection.FullString
+            section.delegate: Component {
                 Item {
+                    width: taskListView.width
+                    height: 28
+
+                    Text {
+                        anchors.left: parent.left
+                        anchors.leftMargin: 2
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 4
+                        text: (section && section.trim() !== "") ? section : "Uncategorized"
+                        color: "#999999"
+                        font.bold: true
+                        font.pixelSize: 12
+                    }
+                }
+            }
+
+            delegate: TaskCard {
+                id: cardDelegate
+                width: taskListView.width
+                task: modelData
+                listView: taskListView
+                isRunning: (modelData && modelData.is_running !== undefined) ? modelData.is_running : (taskBridge && modelData ? taskBridge.isTaskRunning(modelData.id) : false)
+
+                onToggleClicked: {
+                    if (!cardDelegate.task) return
+                    if (cardDelegate.isRunning) {
+                        taskBridge.stopTask(cardDelegate.task.id)
+                    } else {
+                        taskBridge.startTask(cardDelegate.task.id)
+                    }
+                }
+
+                onLogsClicked: {
+                    if (!cardDelegate.task) return
+                    logViewer.taskName = cardDelegate.task.name
+                    logViewer.open()
+                }
+
+                onEditClicked: {
+                    if (!cardDelegate.task) return
+                    taskDialog.taskId = cardDelegate.task.id
+                    taskDialog.taskName = cardDelegate.task.name
+                    taskDialog.command = cardDelegate.task.command
+                    taskDialog.workingDir = cardDelegate.task.working_directory
+                    taskDialog.group = cardDelegate.task.group || ""
+                    taskDialog.open()
+                }
+
+                onReorderRequested: function(taskId, targetIndex) {
+                    taskBridge.reorderTask(taskId, targetIndex)
+                }
+
+                onDeleteClicked: {
+                    if (!cardDelegate.task) return
+                    deleteConfirmDialog.contextData = cardDelegate.task.id
+                    deleteConfirmDialog.message = "Delete task '" + cardDelegate.task.name + "'?"
+                    deleteConfirmDialog.subMessage = "This will stop the task if running and delete it."
+                    deleteConfirmDialog.open()
+                }
+            }
+
+            // Empty State
+            Item {
+                anchors.centerIn: parent
+                width: parent.width
+                height: 120
+                visible: !taskBridge || !taskBridge.tasks || taskBridge.tasks.length === 0
+
+                ColumnLayout {
                     anchors.centerIn: parent
-                    width: parent.width
-                    height: 120
-                    visible: !taskBridge || !taskBridge.tasks || taskBridge.tasks.length === 0
+                    spacing: 8
 
-                    ColumnLayout {
-                        anchors.centerIn: parent
-                        spacing: 8
+                    Text {
+                        text: "No tasks configured"
+                        color: "#888888"
+                        font.pixelSize: 14
+                        font.bold: true
+                        Layout.alignment: Qt.AlignHCenter
+                    }
 
-                        Text {
-                            text: "No tasks configured"
-                            color: "#888888"
-                            font.pixelSize: 14
-                            font.bold: true
-                            Layout.alignment: Qt.AlignHCenter
-                        }
-
-                        Text {
-                            text: "Click 'Add Task' to create your first task."
-                            color: "#666666"
-                            font.pixelSize: 12
-                            Layout.alignment: Qt.AlignHCenter
-                        }
+                    Text {
+                        text: "Click 'Add Task' to create your first task."
+                        color: "#666666"
+                        font.pixelSize: 12
+                        Layout.alignment: Qt.AlignHCenter
                     }
                 }
             }
@@ -374,7 +256,6 @@ ApplicationWindow {
         id: taskDialog
         onSaved: function(id, name, command, dir, group) {
             taskBridge.saveTask(id, name, command, dir, group)
-            window.refreshAll()
         }
     }
 
@@ -394,7 +275,6 @@ ApplicationWindow {
         onConfirmed: function(taskId) {
             if (taskId) {
                 taskBridge.deleteTask(taskId)
-                window.refreshAll()
             }
         }
     }
@@ -403,8 +283,8 @@ ApplicationWindow {
     ConfirmDialog {
         id: quitConfirmDialog
         dialogTitle: "Quit DevTray"
-        message: "Quit DevTray?"
-        subMessage: "This will terminate all running tasks. Are you sure you want to quit?"
+        message: "Are you sure you want to quit?"
+        subMessage: "This will terminate all running tasks."
         confirmButtonText: "Quit"
         isDestructive: true
 
@@ -414,3 +294,4 @@ ApplicationWindow {
         }
     }
 }
+

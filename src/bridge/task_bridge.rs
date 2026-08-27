@@ -296,6 +296,36 @@ impl TaskManagerBridgeRust {
         }
     }
 
+    pub fn reorder_task(&self, task_id: &str, target_index: usize) -> Result<bool, BridgeError> {
+        let mut tasks = self.task_list.lock().unwrap();
+        let current_pos = tasks
+            .iter()
+            .position(|t| t.id == task_id)
+            .ok_or_else(|| BridgeError::TaskNotFound(task_id.to_string()))?;
+
+        if tasks.is_empty() {
+            return Ok(false);
+        }
+
+        let clamped_target = target_index.min(tasks.len() - 1);
+        if current_pos == clamped_target {
+            return Ok(false);
+        }
+
+        // Determine target group from destination position BEFORE removing
+        let target_group = tasks[clamped_target].group.clone();
+
+        let mut task = tasks.remove(current_pos);
+        task.group = target_group;
+
+        let insert_idx = clamped_target.min(tasks.len());
+        tasks.insert(insert_idx, task);
+
+        order_tasks(&mut tasks);
+        self.config_manager.save(&tasks)?;
+        Ok(true)
+    }
+
     pub fn start_task(&self, task_id: &str) -> Result<(), BridgeError> {
         let task = {
             let tasks = self.task_list.lock().unwrap();
@@ -306,7 +336,13 @@ impl TaskManagerBridgeRust {
                 .ok_or_else(|| BridgeError::TaskNotFound(task_id.to_string()))?
         };
 
-        self.process_manager.start(&task)?;
+        if let Err(e) = self.process_manager.start(&task) {
+            let _ = self.broadcaster.append(
+                &task.name,
+                &format!("[DevTray Error] Failed to start task: {}", e),
+            );
+            return Err(BridgeError::IoError(e));
+        }
         Ok(())
     }
 
@@ -416,6 +452,13 @@ pub mod qobject {
         fn move_task(self: Pin<&mut TaskManagerBridge>, task_id: &QString, direction: i32) -> bool;
 
         #[qinvokable]
+        fn reorder_task(
+            self: Pin<&mut TaskManagerBridge>,
+            task_id: &QString,
+            target_index: i32,
+        ) -> bool;
+
+        #[qinvokable]
         fn is_task_running(self: &TaskManagerBridge, task_id: &QString) -> bool;
 
         #[qinvokable]
@@ -507,6 +550,26 @@ impl qobject::TaskManagerBridge {
             .as_ref()
             .rust()
             .move_task(&id_str, direction)
+            .unwrap_or(false);
+        if res {
+            self.as_mut().refresh_tasks();
+        }
+        res
+    }
+
+    pub fn reorder_task(
+        mut self: Pin<&mut Self>,
+        task_id: &QString,
+        target_index: i32,
+    ) -> bool {
+        let id_str = task_id.to_string();
+        if target_index < 0 {
+            return false;
+        }
+        let res = self
+            .as_ref()
+            .rust()
+            .reorder_task(&id_str, target_index as usize)
             .unwrap_or(false);
         if res {
             self.as_mut().refresh_tasks();

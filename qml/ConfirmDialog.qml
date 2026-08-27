@@ -19,11 +19,16 @@ Popup {
     focus: true
     dim: true
     closePolicy: Popup.CloseOnEscape
+    padding: 0
 
-    width: 360
+    width: Math.min(parent ? parent.width - 24 : 360, 360)
     implicitHeight: mainLayout.implicitHeight + 30
-    x: Math.round((parent.width - width) / 2)
-    y: Math.round((parent.height - height) / 2)
+    x: parent ? Math.round((parent.width - width) / 2) : 0
+    y: parent ? Math.round((parent.height - height) / 2) : 0
+
+    onOpened: {
+        confirmBtn.forceActiveFocus()
+    }
 
     background: Rectangle {
         color: "#242424"
@@ -37,6 +42,17 @@ Popup {
         anchors.fill: parent
         anchors.margins: 14
         spacing: 12
+        focus: true
+
+        Keys.onReturnPressed: {
+            root.confirmed(root.contextData)
+            root.close()
+        }
+
+        Keys.onEscapePressed: {
+            root.cancelled()
+            root.close()
+        }
 
         // Header
         RowLayout {
@@ -51,8 +67,10 @@ Popup {
             }
 
             Rectangle {
-                width: 22
-                height: 22
+                implicitWidth: 22
+                implicitHeight: 22
+                Layout.preferredWidth: 22
+                Layout.preferredHeight: 22
                 radius: 11
                 color: closeBtnArea.containsMouse ? "#3a3a3a" : "transparent"
 
@@ -88,6 +106,7 @@ Popup {
                 font.bold: true
                 wrapMode: Text.Wrap
                 Layout.fillWidth: true
+                visible: root.message !== "" && root.message.toLowerCase().trim() !== root.dialogTitle.toLowerCase().trim()
             }
 
             Text {

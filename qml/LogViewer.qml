@@ -7,16 +7,18 @@ Popup {
 
     property string taskName: ""
     property var taskBridge: null
+    property int clearedLineCount: 0
 
     modal: true
     focus: true
     dim: true
     closePolicy: Popup.CloseOnEscape
+    padding: 0
 
-    width: 600
-    height: 440
-    x: Math.round((parent.width - width) / 2)
-    y: Math.round((parent.height - height) / 2)
+    width: Math.min(parent ? parent.width - 24 : 560, 560)
+    height: Math.min(parent ? parent.height - 30 : 440, 440)
+    x: parent ? Math.round((parent.width - width) / 2) : 0
+    y: parent ? Math.round((parent.height - height) / 2) : 0
 
     background: Rectangle {
         color: "#242424"
@@ -25,20 +27,49 @@ Popup {
         radius: 8
     }
 
+    onTaskNameChanged: {
+        root.clearedLineCount = 0
+        if (logTextArea) logTextArea.text = ""
+        refreshLogs()
+    }
+
+    function formatLines(lines) {
+        if (!lines || lines.length === 0) return ""
+        var startIdx = 0
+        if (root.clearedLineCount > 0) {
+            if (lines.length > root.clearedLineCount) {
+                startIdx = root.clearedLineCount
+            } else {
+                return ""
+            }
+        }
+        var text = ""
+        for (var i = startIdx; i < lines.length; i++) {
+            var rawLine = String(lines[i] !== undefined ? lines[i] : "")
+            // Strip terminal ANSI escape codes
+            var cleanLine = rawLine.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "")
+            text += (text.length > 0 ? "\n" : "") + cleanLine
+        }
+        return text
+    }
+
     function refreshLogs() {
         if (!root.visible || !root.taskBridge || root.taskName === "") return
         var lines = root.taskBridge.getRecentLogs(root.taskName)
-        var newText = lines.join("\n")
+        var newText = formatLines(lines)
         if (logTextArea.text !== newText) {
-            var wasAtBottom = (logScrollView.ScrollBar.vertical.position + logScrollView.ScrollBar.vertical.size >= 0.95)
+            var wasAtBottom = (logScrollView.ScrollBar.vertical.position + logScrollView.ScrollBar.vertical.size >= 0.92)
+            var wasEmpty = logTextArea.text.length === 0
             logTextArea.text = newText
-            if (wasAtBottom || logScrollView.ScrollBar.vertical.size === 1.0) {
+            if (wasAtBottom || wasEmpty || logScrollView.ScrollBar.vertical.size === 1.0) {
                 logTextArea.cursorPosition = logTextArea.text.length
+                logScrollView.ScrollBar.vertical.position = Math.max(0, 1.0 - logScrollView.ScrollBar.vertical.size)
             }
         }
     }
 
     onOpened: {
+        root.clearedLineCount = 0
         refreshLogs()
         logTimer.start()
     }
@@ -65,7 +96,7 @@ Popup {
             Layout.fillWidth: true
 
             Text {
-                text: "Live Logs: " + root.taskName
+                text: "Live Logs: " + (root.taskName !== "" ? root.taskName : "Task")
                 color: "#ffffff"
                 font.bold: true
                 font.pixelSize: 14
@@ -74,8 +105,10 @@ Popup {
             }
 
             Rectangle {
-                width: 22
-                height: 22
+                implicitWidth: 22
+                implicitHeight: 22
+                Layout.preferredWidth: 22
+                Layout.preferredHeight: 22
                 radius: 11
                 color: closeBtnArea.containsMouse ? "#3a3a3a" : "transparent"
 
@@ -115,7 +148,7 @@ Popup {
                     id: logTextArea
                     readOnly: true
                     selectByMouse: true
-                    font.family: "DejaVu Sans Mono, Monospace, Courier"
+                    font.family: "DejaVu Sans Mono, Monospace, Courier, monospace"
                     font.pixelSize: 11
                     color: "#33d17a"
                     selectedTextColor: "#ffffff"
@@ -123,6 +156,16 @@ Popup {
                     background: null
                     wrapMode: TextEdit.WrapAnywhere
                 }
+            }
+
+            // Empty state placeholder
+            Text {
+                anchors.centerIn: parent
+                text: "(No logs recorded yet...)"
+                color: "#555555"
+                font.pixelSize: 12
+                font.italic: true
+                visible: logTextArea.text.trim() === ""
             }
         }
 
@@ -151,7 +194,13 @@ Popup {
                     verticalAlignment: Text.AlignVCenter
                 }
 
-                onClicked: logTextArea.text = ""
+                onClicked: {
+                    if (root.taskBridge && root.taskName !== "") {
+                        var currentLines = root.taskBridge.getRecentLogs(root.taskName)
+                        root.clearedLineCount = currentLines ? currentLines.length : 0
+                    }
+                    logTextArea.text = ""
+                }
             }
 
             Item {

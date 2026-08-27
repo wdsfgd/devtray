@@ -237,6 +237,124 @@ fn test_bridge_move_nonexistent_task() {
 }
 
 #[test]
+fn test_bridge_reorder_task_within_group() {
+    let (bridge, dir) = setup_test_bridge();
+    let config_file = dir.path().join("config.json");
+
+    let t1 = bridge.add_task("T1", "echo 1", ".", Some("GroupA")).unwrap();
+    let _t2 = bridge.add_task("T2", "echo 2", ".", Some("GroupA")).unwrap();
+    let t3 = bridge.add_task("T3", "echo 3", ".", Some("GroupA")).unwrap();
+
+    assert_eq!(
+        bridge.tasks().iter().map(|t| &t.name).collect::<Vec<_>>(),
+        vec!["T1", "T2", "T3"]
+    );
+
+    // Reorder T3 (index 2) to index 0 -> [T3, T1, T2]
+    let reordered = bridge.reorder_task(&t3.id, 0).unwrap();
+    assert!(reordered);
+    assert_eq!(
+        bridge.tasks().iter().map(|t| &t.name).collect::<Vec<_>>(),
+        vec!["T3", "T1", "T2"]
+    );
+
+    // Reorder T1 (currently index 1) to index 2 -> [T3, T2, T1]
+    let reordered2 = bridge.reorder_task(&t1.id, 2).unwrap();
+    assert!(reordered2);
+    assert_eq!(
+        bridge.tasks().iter().map(|t| &t.name).collect::<Vec<_>>(),
+        vec!["T3", "T2", "T1"]
+    );
+
+    // Verify persistence
+    let cm_verify = ConfigManager::with_path(config_file);
+    let loaded = cm_verify.load().unwrap();
+    assert_eq!(
+        loaded.iter().map(|t| &t.name).collect::<Vec<_>>(),
+        vec!["T3", "T2", "T1"]
+    );
+}
+
+#[test]
+fn test_bridge_reorder_task_across_groups() {
+    let (bridge, _dir) = setup_test_bridge();
+
+    let _t1 = bridge.add_task("T1", "echo 1", ".", Some("Backend")).unwrap();
+    let _t2 = bridge.add_task("T2", "echo 2", ".", Some("Backend")).unwrap();
+    let t3 = bridge.add_task("T3", "echo 3", ".", None).unwrap(); // Uncategorized
+
+    assert_eq!(
+        bridge.tasks().iter().map(|t| &t.name).collect::<Vec<_>>(),
+        vec!["T1", "T2", "T3"]
+    );
+
+    // Drag T3 (index 2, uncategorized) up to index 0 (Backend)
+    let reordered = bridge.reorder_task(&t3.id, 0).unwrap();
+    assert!(reordered);
+
+    let tasks = bridge.tasks();
+    assert_eq!(
+        tasks.iter().map(|t| &t.name).collect::<Vec<_>>(),
+        vec!["T3", "T1", "T2"]
+    );
+    assert_eq!(tasks[0].group.as_deref(), Some("Backend"));
+}
+
+#[test]
+fn test_bridge_reorder_task_downward_across_groups() {
+    let (bridge, _dir) = setup_test_bridge();
+
+    let t1 = bridge.add_task("T1", "echo 1", ".", Some("Backend")).unwrap();
+    let _t2 = bridge.add_task("T2", "echo 2", ".", Some("Backend")).unwrap();
+    let _t3 = bridge.add_task("T3", "echo 3", ".", Some("Frontend")).unwrap();
+
+    assert_eq!(
+        bridge.tasks().iter().map(|t| &t.name).collect::<Vec<_>>(),
+        vec!["T1", "T2", "T3"]
+    );
+
+    // Drag T1 (index 0, Backend) down to index 2 (Frontend)
+    let reordered = bridge.reorder_task(&t1.id, 2).unwrap();
+    assert!(reordered);
+
+    let tasks = bridge.tasks();
+    assert_eq!(
+        tasks.iter().map(|t| &t.name).collect::<Vec<_>>(),
+        vec!["T2", "T3", "T1"]
+    );
+    assert_eq!(tasks[2].group.as_deref(), Some("Frontend"));
+}
+
+#[test]
+fn test_bridge_reorder_task_downward_within_group() {
+    let (bridge, _dir) = setup_test_bridge();
+
+    let t1 = bridge.add_task("T1", "echo 1", ".", Some("Backend")).unwrap();
+    let _t2 = bridge.add_task("T2", "echo 2", ".", Some("Backend")).unwrap();
+    let _t3 = bridge.add_task("T3", "echo 3", ".", Some("Frontend")).unwrap();
+
+    // Drag T1 (index 0) down to index 1 (T2 in Backend)
+    let reordered = bridge.reorder_task(&t1.id, 1).unwrap();
+    assert!(reordered);
+
+    let tasks = bridge.tasks();
+    assert_eq!(
+        tasks.iter().map(|t| &t.name).collect::<Vec<_>>(),
+        vec!["T2", "T1", "T3"]
+    );
+    assert_eq!(tasks[0].group.as_deref(), Some("Backend"));
+    assert_eq!(tasks[1].group.as_deref(), Some("Backend"));
+    assert_eq!(tasks[2].group.as_deref(), Some("Frontend"));
+}
+
+#[test]
+fn test_bridge_reorder_nonexistent_task() {
+    let (bridge, _dir) = setup_test_bridge();
+    let res = bridge.reorder_task("invalid", 0);
+    assert!(matches!(res, Err(BridgeError::TaskNotFound(_))));
+}
+
+#[test]
 fn test_bridge_start_and_stop_task() {
     let (bridge, _dir) = setup_test_bridge();
 

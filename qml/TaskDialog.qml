@@ -10,6 +10,9 @@ Popup {
     property alias command: cmdField.text
     property alias workingDir: dirField.text
     property alias group: groupField.text
+    property string errorText: ""
+    property bool nameError: false
+    property bool cmdError: false
 
     signal saved(string id, string name, string command, string workingDir, string group)
 
@@ -17,14 +20,19 @@ Popup {
     focus: true
     dim: true
     closePolicy: Popup.CloseOnEscape
+    padding: 0
 
-    width: 360
+    width: Math.min(parent ? parent.width - 24 : 360, 360)
     implicitHeight: mainLayout.implicitHeight + 28
-    x: Math.round((parent.width - width) / 2)
-    y: Math.round((parent.height - height) / 2)
+    x: parent ? Math.round((parent.width - width) / 2) : 0
+    y: parent ? Math.round((parent.height - height) / 2) : 0
 
     onOpened: {
+        root.errorText = ""
+        root.nameError = false
+        root.cmdError = false
         nameField.forceActiveFocus()
+        nameField.selectAll()
     }
 
     background: Rectangle {
@@ -35,10 +43,23 @@ Popup {
     }
 
     function submit() {
-        if (nameField.text.trim() === "" || cmdField.text.trim() === "") {
+        var nameTrimmed = nameField.text.trim()
+        var cmdTrimmed = cmdField.text.trim()
+
+        if (nameTrimmed === "") {
+            root.nameError = true
+            root.errorText = "Task name is required."
+            nameField.forceActiveFocus()
             return
         }
-        root.saved(root.taskId, nameField.text.trim(), cmdField.text.trim(), dirField.text.trim(), groupField.text.trim())
+        if (cmdTrimmed === "") {
+            root.cmdError = true
+            root.errorText = "Command is required."
+            cmdField.forceActiveFocus()
+            return
+        }
+
+        root.saved(root.taskId, nameTrimmed, cmdTrimmed, dirField.text.trim(), groupField.text.trim())
         root.close()
     }
 
@@ -61,8 +82,10 @@ Popup {
             }
 
             Rectangle {
-                width: 22
-                height: 22
+                implicitWidth: 22
+                implicitHeight: 22
+                Layout.preferredWidth: 22
+                Layout.preferredHeight: 22
                 radius: 11
                 color: closeArea.containsMouse ? "#3a3a3a" : "transparent"
 
@@ -115,12 +138,26 @@ Popup {
 
                     background: Rectangle {
                         color: "#1c1c1c"
-                        border.color: nameField.activeFocus ? "#3584e4" : "#3d3d3d"
-                        border.width: nameField.activeFocus ? 2 : 1
+                        border.color: root.nameError ? "#e74c3c" : (nameField.activeFocus ? "#3584e4" : "#3d3d3d")
+                        border.width: (root.nameError || nameField.activeFocus) ? 2 : 1
                         radius: 4
                     }
 
+                    onTextChanged: {
+                        if (root.nameError) {
+                            root.nameError = false
+                            root.errorText = ""
+                        }
+                    }
+
                     onAccepted: cmdField.forceActiveFocus()
+                    Keys.onReturnPressed: function(event) {
+                        if (event.modifiers & Qt.ControlModifier) {
+                            root.submit()
+                        } else {
+                            cmdField.forceActiveFocus()
+                        }
+                    }
                 }
             }
 
@@ -151,12 +188,26 @@ Popup {
 
                     background: Rectangle {
                         color: "#1c1c1c"
-                        border.color: cmdField.activeFocus ? "#3584e4" : "#3d3d3d"
-                        border.width: cmdField.activeFocus ? 2 : 1
+                        border.color: root.cmdError ? "#e74c3c" : (cmdField.activeFocus ? "#3584e4" : "#3d3d3d")
+                        border.width: (root.cmdError || cmdField.activeFocus) ? 2 : 1
                         radius: 4
                     }
 
+                    onTextChanged: {
+                        if (root.cmdError) {
+                            root.cmdError = false
+                            root.errorText = ""
+                        }
+                    }
+
                     onAccepted: dirField.forceActiveFocus()
+                    Keys.onReturnPressed: function(event) {
+                        if (event.modifiers & Qt.ControlModifier) {
+                            root.submit()
+                        } else {
+                            dirField.forceActiveFocus()
+                        }
+                    }
                 }
             }
 
@@ -193,6 +244,13 @@ Popup {
                     }
 
                     onAccepted: groupField.forceActiveFocus()
+                    Keys.onReturnPressed: function(event) {
+                        if (event.modifiers & Qt.ControlModifier) {
+                            root.submit()
+                        } else {
+                            groupField.forceActiveFocus()
+                        }
+                    }
                 }
             }
 
@@ -229,12 +287,20 @@ Popup {
                     }
 
                     onAccepted: root.submit()
+                    Keys.onReturnPressed: function(event) {
+                        root.submit()
+                    }
                 }
             }
         }
 
-        Item {
-            Layout.preferredHeight: 4
+        // Error message row
+        Text {
+            text: root.errorText
+            color: "#ff6b6b"
+            font.pixelSize: 11
+            visible: root.errorText !== ""
+            Layout.fillWidth: true
         }
 
         // Action Buttons (Right-aligned Cancel & Save)
