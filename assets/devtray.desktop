@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=DevTray
+Comment=A system tray application to manage background development services
+Exec=devtray
+Icon=devtray
+Categories=Development;Utility;
+Terminal=false
+StartupNotify=false
