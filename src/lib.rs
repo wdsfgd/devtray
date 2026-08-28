@@ -1,4 +1,4 @@
-pub extern crate cxx_qt_lib_extras;
-
-pub mod bridge;
 pub mod core;
+pub mod gui;
+
+slint::include_modules!();
