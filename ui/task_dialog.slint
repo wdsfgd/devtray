@@ -99,6 +99,7 @@ export component TaskDialog inherits Rectangle {
                             border-color: (root.error_message != "" && root.name_text == "") ? Theme.danger : (nameInput.has-focus ? Theme.accent : Theme.border);
                             border-width: (nameInput.has-focus || (root.error_message != "" && root.name_text == "")) ? 2px : 1px;
                             border-radius: 5px;
+                            clip: true;
 
                             nameInput := TextInput {
                                 x: 8px;
@@ -147,6 +148,7 @@ export component TaskDialog inherits Rectangle {
                             border-color: (root.error_message != "" && root.command_text == "") ? Theme.danger : (cmdInput.has-focus ? Theme.accent : Theme.border);
                             border-width: (cmdInput.has-focus || (root.error_message != "" && root.command_text == "")) ? 2px : 1px;
                             border-radius: 5px;
+                            clip: true;
 
                             cmdInput := TextInput {
                                 x: 8px;
@@ -195,6 +197,7 @@ export component TaskDialog inherits Rectangle {
                             border-color: dirInput.has-focus ? Theme.accent : Theme.border;
                             border-width: dirInput.has-focus ? 2px : 1px;
                             border-radius: 5px;
+                            clip: true;
 
                             dirInput := TextInput {
                                 x: 8px;
@@ -238,6 +241,8 @@ export component TaskDialog inherits Rectangle {
                             border-color: groupInput.has-focus ? Theme.accent : Theme.border;
                             border-width: groupInput.has-focus ? 2px : 1px;
                             border-radius: 5px;
+                            clip: true;
+
 
                             groupInput := TextInput {
                                 x: 8px;

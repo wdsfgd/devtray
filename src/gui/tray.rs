@@ -13,21 +13,15 @@ pub fn format_tray_tooltip(active_count: usize) -> String {
     }
 }
 
-/// Loads the embedded PNG icon into a `ksni::Icon` ARGB32 format.
+include!(concat!(env!("OUT_DIR"), "/tray_icon_meta.rs"));
+static ICON_DATA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/tray_icon.bin"));
+
+/// Loads the pre-decoded PNG icon into a `ksni::Icon` ARGB32 format.
 pub fn load_tray_icon() -> Option<ksni::Icon> {
-    let img_bytes = include_bytes!("../../assets/icon.png");
-    let img = image::load_from_memory(img_bytes).ok()?;
-    let width = img.width();
-    let height = img.height();
-    let mut data = img.into_rgba8().into_vec();
-    // Convert RGBA to ARGB network byte order as required by StatusNotifierItem
-    for pixel in data.chunks_exact_mut(4) {
-        pixel.rotate_right(1); // [R, G, B, A] -> [A, R, G, B]
-    }
     Some(ksni::Icon {
-        width: width as i32,
-        height: height as i32,
-        data,
+        width: ICON_WIDTH,
+        height: ICON_HEIGHT,
+        data: ICON_DATA.to_vec(),
     })
 }
 

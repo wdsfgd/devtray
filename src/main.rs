@@ -62,12 +62,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // 7. Intercept window close to hide window so clicking X keeps the app running in system tray
-    main_window
-        .window()
-        .on_close_requested(|| slint::CloseRequestResponse::HideWindow);
+    let ui_weak = main_window.as_weak();
+    main_window.window().on_close_requested(move || {
+        if let Some(ui) = ui_weak.upgrade() {
+            ui.hide().ok();
+        }
+        slint::CloseRequestResponse::HideWindow
+    });
 
-    // 8. Call main_window.run()?
-    let run_res = main_window.run();
+    // 8. Show main window and run event loop until explicit quit (from tray menu or quit dialog)
+    main_window.show()?;
+    let run_res = slint::run_event_loop_until_quit();
 
     // 9. Ensure controller.stop_all() is executed on application termination
     controller.stop_all();
