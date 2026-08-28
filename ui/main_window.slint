@@ -1,5 +1,385 @@
+import { Theme } from "theme.slint";
+import { TaskItem, TaskCard } from "task_card.slint";
+import { LogViewer } from "log_viewer.slint";
+import { TaskDialog } from "task_dialog.slint";
+import { ConfirmDialog } from "confirm_dialog.slint";
+import { ScrollView } from "std-widgets.slint";
+
+export { TaskItem, Theme }
+
 export component MainWindow inherits Window {
     title: "DevTray";
-    width: 400px;
-    height: 500px;
+    min-width: 380px;
+    min-height: 480px;
+    preferred-width: 440px;
+    preferred-height: 580px;
+    background: Theme.background;
+
+    // Model properties
+    in property <[TaskItem]> tasks: [];
+    in property <int> running_count: 0;
+
+    // Log viewer properties
+    in-out property <string> log_viewer_text: "";
+    in-out property <string> log_viewer_task_name: "";
+    in-out property <bool> log_viewer_open: false;
+
+    // Task dialog properties
+    in-out property <bool> task_dialog_open: false;
+    in-out property <bool> task_dialog_is_edit: false;
+    in-out property <string> task_dialog_id: "";
+    in-out property <string> task_dialog_name: "";
+    in-out property <string> task_dialog_command: "";
+    in-out property <string> task_dialog_working_dir: ".";
+    in-out property <string> task_dialog_group: "";
+    in-out property <string> task_dialog_error: "";
+
+    // Delete confirmation dialog properties
+    in-out property <bool> delete_dialog_open: false;
+    in-out property <string> delete_task_id: "";
+    in-out property <string> delete_task_name: "";
+
+    // Quit confirmation dialog properties
+    in-out property <bool> quit_dialog_open: false;
+
+    // Callbacks exposed to Rust
+    callback toggle_task(string /* task_id */);
+    callback show_logs(string /* task_id */, string /* task_name */);
+    callback edit_task(string /* task_id */);
+    callback delete_task(string /* task_id */);
+    callback move_task(string /* task_id */, int /* direction */);
+    callback save_task(string /* id */, string /* name */, string /* command */, string /* working_dir */, string /* group */);
+    callback confirm_delete_task(string /* id */);
+    callback start_all();
+    callback stop_all();
+    callback quit_app();
+    callback clear_logs();
+
+    // Main window content layout
+    VerticalLayout {
+        padding: 12px;
+        spacing: 10px;
+
+        // Header
+        HorizontalLayout {
+            height: 32px;
+            alignment: space-between;
+
+            // Title and Active Count Badge
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: start;
+
+                Text {
+                    text: "DevTray";
+                    font-size: 16px;
+                    font-weight: 700;
+                    color: Theme.text-primary;
+                    vertical-alignment: center;
+                }
+
+                if root.running_count > 0 : Rectangle {
+                    height: 20px;
+                    background: #1c3826;
+                    border-color: Theme.running;
+                    border-width: 1px;
+                    border-radius: 10px;
+                    y: 6px;
+
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        spacing: 4px;
+                        alignment: center;
+
+                        Rectangle {
+                            width: 6px;
+                            height: 6px;
+                            border-radius: 3px;
+                            background: Theme.running;
+                            y: 7px;
+                        }
+
+                        Text {
+                            text: root.running_count + " active";
+                            font-size: 11px;
+                            font-weight: 700;
+                            color: Theme.running;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+
+            // + Add Task Button
+            Rectangle {
+                width: 90px;
+                height: 30px;
+                background: btnAddTouch.pressed ? #1f1f1f : (btnAddTouch.has-hover ? #3c3c3c : #2e2e2e);
+                border-color: btnAddTouch.has-hover ? #555555 : #444444;
+                border-width: 1px;
+                border-radius: 4px;
+
+                btnAddTouch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        root.task_dialog_id = "";
+                        root.task_dialog_name = "";
+                        root.task_dialog_command = "";
+                        root.task_dialog_working_dir = ".";
+                        root.task_dialog_group = "";
+                        root.task_dialog_error = "";
+                        root.task_dialog_is_edit = false;
+                        root.task_dialog_open = true;
+                    }
+                }
+
+                Text {
+                    text: "+ Add Task";
+                    color: #ffffff;
+                    font-size: 12px;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        // Task List Area
+        Rectangle {
+            vertical-stretch: 1;
+            clip: true;
+
+            // Empty state placeholder
+            if root.tasks.length == 0 : VerticalLayout {
+                alignment: center;
+                spacing: 8px;
+
+                Text {
+                    text: "No tasks configured";
+                    color: Theme.text-muted;
+                    font-size: 14px;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                }
+
+                Text {
+                    text: "Click '+ Add Task' to create your first service.";
+                    color: #666666;
+                    font-size: 12px;
+                    horizontal-alignment: center;
+                }
+            }
+
+            // Task list items
+            if root.tasks.length > 0 : ScrollView {
+                VerticalLayout {
+                    spacing: 4px;
+                    padding-right: 4px;
+
+                    for task[idx] in root.tasks : VerticalLayout {
+                        spacing: 4px;
+
+                        // Section header
+                        if idx == 0 || root.tasks[idx - 1].group != task.group : Rectangle {
+                            height: 24px;
+                            background: transparent;
+
+                            Text {
+                                text: task.group != "" ? task.group : "Uncategorized";
+                                color: Theme.text-muted;
+                                font-size: 12px;
+                                font-weight: 700;
+                                vertical-alignment: bottom;
+                            }
+                        }
+
+                        TaskCard {
+                            task: task;
+
+                            toggle_task => {
+                                root.toggle_task(task.id);
+                            }
+
+                            show_logs => {
+                                root.log_viewer_task_name = task.name;
+                                root.log_viewer_open = true;
+                                root.show_logs(task.id, task.name);
+                            }
+
+                            edit_task => {
+                                root.task_dialog_id = task.id;
+                                root.task_dialog_name = task.name;
+                                root.task_dialog_command = task.command;
+                                root.task_dialog_working_dir = task.working_directory;
+                                root.task_dialog_group = task.group;
+                                root.task_dialog_error = "";
+                                root.task_dialog_is_edit = true;
+                                root.task_dialog_open = true;
+                                root.edit_task(task.id);
+                            }
+
+                            delete_task => {
+                                root.delete_task_id = task.id;
+                                root.delete_task_name = task.name;
+                                root.delete_dialog_open = true;
+                            }
+
+                            move_up => {
+                                root.move_task(task.id, -1);
+                            }
+
+                            move_down => {
+                                root.move_task(task.id, 1);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Bottom Toolbar
+        Rectangle {
+            height: 40px;
+            background: Theme.card-bg;
+            border-color: Theme.border;
+            border-width: 1px;
+            border-radius: 6px;
+
+            HorizontalLayout {
+                padding-left: 10px;
+                padding-right: 10px;
+                spacing: 8px;
+                alignment: center;
+
+                // Start All Button
+                Rectangle {
+                    width: 80px;
+                    height: 26px;
+                    background: btnStartAll.pressed ? #1c3826 : (btnStartAll.has-hover ? #244630 : #1d3324);
+                    border-color: #2ecc71;
+                    border-width: 1px;
+                    border-radius: 4px;
+
+                    btnStartAll := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.start_all(); }
+                    }
+
+                    Text {
+                        text: "▶ Start All";
+                        color: #2ecc71;
+                        font-size: 11px;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                // Stop All Button
+                Rectangle {
+                    width: 80px;
+                    height: 26px;
+                    background: btnStopAll.pressed ? #3d1c1c : (btnStopAll.has-hover ? #4d2222 : #331d1d);
+                    border-color: #e74c3c;
+                    border-width: 1px;
+                    border-radius: 4px;
+
+                    btnStopAll := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.stop_all(); }
+                    }
+
+                    Text {
+                        text: "⏹ Stop All";
+                        color: #ff7777;
+                        font-size: 11px;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                Rectangle {
+                    horizontal-stretch: 1;
+                }
+
+                // Quit Button
+                Rectangle {
+                    width: 50px;
+                    height: 26px;
+                    background: btnQuit.pressed ? #1f1f1f : (btnQuit.has-hover ? #383838 : #2c2c2c);
+                    border-color: #444444;
+                    border-width: 1px;
+                    border-radius: 4px;
+
+                    btnQuit := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.quit_dialog_open = true; }
+                    }
+
+                    Text {
+                        text: "Quit";
+                        color: Theme.text-muted;
+                        font-size: 11px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+
+    // Modals / Overlays
+    TaskDialog {
+        is_open <=> root.task_dialog_open;
+        is_edit: root.task_dialog_is_edit;
+        task_id: root.task_dialog_id;
+        name_text <=> root.task_dialog_name;
+        command_text <=> root.task_dialog_command;
+        working_dir_text <=> root.task_dialog_working_dir;
+        group_text <=> root.task_dialog_group;
+        error_message <=> root.task_dialog_error;
+
+        save(id, name, cmd, dir, group) => {
+            root.save_task(id, name, cmd, dir, group);
+        }
+    }
+
+    LogViewer {
+        is_open <=> root.log_viewer_open;
+        task_name: root.log_viewer_task_name;
+        log_text: root.log_viewer_text;
+
+        clear_view => {
+            root.clear_logs();
+        }
+    }
+
+    ConfirmDialog {
+        is_open <=> root.delete_dialog_open;
+        title: "Delete Task";
+        message: "Delete task '" + root.delete_task_name + "'?";
+        sub_message: "This will stop the task if running and remove it permanently.";
+        confirm_text: "Delete";
+        is_destructive: true;
+        context_id: root.delete_task_id;
+
+        confirmed(id) => {
+            root.confirm_delete_task(id);
+        }
+    }
+
+    ConfirmDialog {
+        is_open <=> root.quit_dialog_open;
+        title: "Quit DevTray";
+        message: "Are you sure you want to quit?";
+        sub_message: "This will stop all running tasks.";
+        confirm_text: "Quit";
+        is_destructive: true;
+
+        confirmed(_) => {
+            root.quit_app();
+        }
+    }
 }

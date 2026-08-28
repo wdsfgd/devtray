@@ -1,0 +1,337 @@
+import { Theme } from "theme.slint";
+
+export component TaskDialog inherits Rectangle {
+    in-out property <bool> is_open: false;
+    in-out property <string> task_id: "";
+    in-out property <string> name_text: "";
+    in-out property <string> command_text: "";
+    in-out property <string> working_dir_text: ".";
+    in-out property <string> group_text: "";
+    in-out property <string> error_message: "";
+    in property <bool> is_edit: false;
+
+    callback save(string /* id */, string /* name */, string /* command */, string /* working_dir */, string /* group */);
+    callback cancel();
+
+    visible: root.is_open;
+    z: 100;
+    x: 0;
+    y: 0;
+    width: 100%;
+    height: 100%;
+    background: Theme.modal-backdrop;
+
+    // Intercept clicks on background
+    TouchArea {}
+
+    dialog_box := Rectangle {
+        width: min(root.width - 24px, 420px);
+        background: Theme.card-bg;
+        border-color: Theme.border;
+        border-width: 1px;
+        border-radius: 8px;
+        clip: true;
+
+        VerticalLayout {
+            padding: 16px;
+            spacing: 12px;
+
+            // Header
+            HorizontalLayout {
+                height: 24px;
+                alignment: space-between;
+
+                Text {
+                    text: root.is_edit ? "Edit Task" : "Add Task";
+                    color: Theme.text-primary;
+                    font-size: 14px;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                }
+
+                Rectangle {
+                    width: 22px;
+                    height: 22px;
+                    border-radius: 11px;
+                    background: closeBtnTouch.has-hover ? #3a3a3a : transparent;
+
+                    closeBtnTouch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.cancel();
+                            root.is_open = false;
+                            root.error_message = "";
+                        }
+                    }
+
+                    Text {
+                        text: "✕";
+                        color: #999999;
+                        font-size: 11px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            // Name Field
+            VerticalLayout {
+                spacing: 4px;
+
+                Text {
+                    text: "Name:";
+                    color: Theme.text-secondary;
+                    font-size: 12px;
+                }
+
+                Rectangle {
+                    height: 32px;
+                    background: Theme.input-bg;
+                    border-color: (root.error_message != "" && root.name_text == "") ? Theme.danger : (nameInput.has-focus ? Theme.accent : Theme.border);
+                    border-width: (nameInput.has-focus || (root.error_message != "" && root.name_text == "")) ? 2px : 1px;
+                    border-radius: 4px;
+
+                    nameInput := TextInput {
+                        x: 8px;
+                        y: 0px;
+                        width: parent.width - 16px;
+                        height: parent.height;
+                        vertical-alignment: center;
+                        text <=> root.name_text;
+                        color: Theme.text-primary;
+                        font-size: 12px;
+                        single-line: true;
+                        edited => {
+                            if root.error_message != "" && root.name_text != "" {
+                                root.error_message = "";
+                            }
+                        }
+                    }
+
+                    if root.name_text == "" && !nameInput.has-focus : Text {
+                        x: 8px;
+                        y: 0px;
+                        width: parent.width - 16px;
+                        height: parent.height;
+                        vertical-alignment: center;
+                        text: "e.g. Frontend Server";
+                        color: Theme.text-muted;
+                        font-size: 12px;
+                    }
+                }
+            }
+
+            // Command Field
+            VerticalLayout {
+                spacing: 4px;
+
+                Text {
+                    text: "Command:";
+                    color: Theme.text-secondary;
+                    font-size: 12px;
+                }
+
+                Rectangle {
+                    height: 32px;
+                    background: Theme.input-bg;
+                    border-color: (root.error_message != "" && root.command_text == "") ? Theme.danger : (cmdInput.has-focus ? Theme.accent : Theme.border);
+                    border-width: (cmdInput.has-focus || (root.error_message != "" && root.command_text == "")) ? 2px : 1px;
+                    border-radius: 4px;
+
+                    cmdInput := TextInput {
+                        x: 8px;
+                        y: 0px;
+                        width: parent.width - 16px;
+                        height: parent.height;
+                        vertical-alignment: center;
+                        text <=> root.command_text;
+                        color: Theme.text-primary;
+                        font-size: 12px;
+                        single-line: true;
+                        edited => {
+                            if root.error_message != "" && root.command_text != "" {
+                                root.error_message = "";
+                            }
+                        }
+                    }
+
+                    if root.command_text == "" && !cmdInput.has-focus : Text {
+                        x: 8px;
+                        y: 0px;
+                        width: parent.width - 16px;
+                        height: parent.height;
+                        vertical-alignment: center;
+                        text: "e.g. npm run dev";
+                        color: Theme.text-muted;
+                        font-size: 12px;
+                    }
+                }
+            }
+
+            // Working Directory Field
+            VerticalLayout {
+                spacing: 4px;
+
+                Text {
+                    text: "Working Directory:";
+                    color: Theme.text-secondary;
+                    font-size: 12px;
+                }
+
+                Rectangle {
+                    height: 32px;
+                    background: Theme.input-bg;
+                    border-color: dirInput.has-focus ? Theme.accent : Theme.border;
+                    border-width: dirInput.has-focus ? 2px : 1px;
+                    border-radius: 4px;
+
+                    dirInput := TextInput {
+                        x: 8px;
+                        y: 0px;
+                        width: parent.width - 16px;
+                        height: parent.height;
+                        vertical-alignment: center;
+                        text <=> root.working_dir_text;
+                        color: Theme.text-primary;
+                        font-size: 12px;
+                        single-line: true;
+                    }
+
+                    if root.working_dir_text == "" && !dirInput.has-focus : Text {
+                        x: 8px;
+                        y: 0px;
+                        width: parent.width - 16px;
+                        height: parent.height;
+                        vertical-alignment: center;
+                        text: ".";
+                        color: Theme.text-muted;
+                        font-size: 12px;
+                    }
+                }
+            }
+
+            // Group Field
+            VerticalLayout {
+                spacing: 4px;
+
+                Text {
+                    text: "Group (Optional):";
+                    color: Theme.text-secondary;
+                    font-size: 12px;
+                }
+
+                Rectangle {
+                    height: 32px;
+                    background: Theme.input-bg;
+                    border-color: groupInput.has-focus ? Theme.accent : Theme.border;
+                    border-width: groupInput.has-focus ? 2px : 1px;
+                    border-radius: 4px;
+
+                    groupInput := TextInput {
+                        x: 8px;
+                        y: 0px;
+                        width: parent.width - 16px;
+                        height: parent.height;
+                        vertical-alignment: center;
+                        text <=> root.group_text;
+                        color: Theme.text-primary;
+                        font-size: 12px;
+                        single-line: true;
+                    }
+
+                    if root.group_text == "" && !groupInput.has-focus : Text {
+                        x: 8px;
+                        y: 0px;
+                        width: parent.width - 16px;
+                        height: parent.height;
+                        vertical-alignment: center;
+                        text: "e.g. Web";
+                        color: Theme.text-muted;
+                        font-size: 12px;
+                    }
+                }
+            }
+
+            // Error message display
+            if root.error_message != "" : Text {
+                text: root.error_message;
+                color: #ff6b6b;
+                font-size: 11px;
+            }
+
+            // Action Buttons
+            HorizontalLayout {
+                height: 30px;
+                spacing: 8px;
+                alignment: end;
+
+                // Cancel Button
+                Rectangle {
+                    width: 72px;
+                    height: 30px;
+                    background: cancelBtnTouch.pressed ? #1f1f1f : (cancelBtnTouch.has-hover ? #383838 : #2c2c2c);
+                    border-color: #444444;
+                    border-width: 1px;
+                    border-radius: 4px;
+
+                    cancelBtnTouch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.cancel();
+                            root.is_open = false;
+                            root.error_message = "";
+                        }
+                    }
+
+                    Text {
+                        text: "Cancel";
+                        color: Theme.text-secondary;
+                        font-size: 12px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                // Save Button
+                Rectangle {
+                    width: 72px;
+                    height: 30px;
+                    background: saveBtnTouch.pressed ? Theme.accent-pressed : (saveBtnTouch.has-hover ? Theme.accent-hover : Theme.accent);
+                    border-color: Theme.accent;
+                    border-width: 1px;
+                    border-radius: 4px;
+
+                    saveBtnTouch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            if root.name_text == "" {
+                                root.error_message = "Task name cannot be empty";
+                            } else if root.command_text == "" {
+                                root.error_message = "Task command cannot be empty";
+                            } else {
+                                root.save(
+                                    root.task_id,
+                                    root.name_text,
+                                    root.command_text,
+                                    root.working_dir_text != "" ? root.working_dir_text : ".",
+                                    root.group_text
+                                );
+                                root.is_open = false;
+                                root.error_message = "";
+                            }
+                        }
+                    }
+
+                    Text {
+                        text: "Save";
+                        color: #ffffff;
+                        font-size: 12px;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+}

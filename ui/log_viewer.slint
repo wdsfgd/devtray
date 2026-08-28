@@ -1,0 +1,171 @@
+import { Theme } from "theme.slint";
+import { ScrollView } from "std-widgets.slint";
+
+export component LogViewer inherits Rectangle {
+    in-out property <bool> is_open: false;
+    in property <string> task_name: "";
+    in property <string> log_text: "";
+    callback clear_view();
+    callback close();
+
+    visible: root.is_open;
+    z: 100;
+    x: 0;
+    y: 0;
+    width: 100%;
+    height: 100%;
+    background: Theme.modal-backdrop;
+
+    // Intercept clicks on background
+    TouchArea {}
+
+    // Modal Dialog Box
+    dialog_box := Rectangle {
+        width: min(root.width - 24px, 560px);
+        height: min(root.height - 30px, 440px);
+        background: Theme.card-bg;
+        border-color: Theme.border;
+        border-width: 1px;
+        border-radius: 8px;
+        clip: true;
+
+        VerticalLayout {
+            padding: 14px;
+            spacing: 10px;
+
+            // Header
+            HorizontalLayout {
+                height: 24px;
+                alignment: space-between;
+
+                Text {
+                    text: "Live Logs: " + (root.task_name != "" ? root.task_name : "Task");
+                    color: Theme.text-primary;
+                    font-size: 14px;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                    overflow: elide;
+                    horizontal-stretch: 1;
+                }
+
+                Rectangle {
+                    width: 22px;
+                    height: 22px;
+                    border-radius: 11px;
+                    background: closeBtnTouch.has-hover ? #3a3a3a : transparent;
+
+                    closeBtnTouch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.close();
+                            root.is_open = false;
+                        }
+                    }
+
+                    Text {
+                        text: "✕";
+                        color: #999999;
+                        font-size: 11px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            // Terminal Log Box
+            Rectangle {
+                vertical-stretch: 1;
+                background: Theme.terminal-bg;
+                border-color: Theme.border;
+                border-width: 1px;
+                border-radius: 4px;
+                clip: true;
+
+                ScrollView {
+                    x: 8px;
+                    y: 8px;
+                    width: parent.width - 16px;
+                    height: parent.height - 16px;
+
+                    TextInput {
+                        read-only: true;
+                        single-line: false;
+                        text: root.log_text;
+                        color: Theme.terminal-text;
+                        font-family: "DejaVu Sans Mono, monospace";
+                        font-size: 11px;
+                        wrap: word-wrap;
+                    }
+                }
+
+                if root.log_text == "" : Text {
+                    text: "(No logs recorded yet...)";
+                    color: #555555;
+                    font-size: 12px;
+                    font-italic: true;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+
+            // Action Toolbar
+            HorizontalLayout {
+                height: 28px;
+                spacing: 8px;
+
+                // Clear View Button
+                Rectangle {
+                    width: 85px;
+                    height: 28px;
+                    background: clearBtnTouch.pressed ? #1f1f1f : (clearBtnTouch.has-hover ? #383838 : #2c2c2c);
+                    border-color: #444444;
+                    border-width: 1px;
+                    border-radius: 4px;
+
+                    clearBtnTouch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.clear_view(); }
+                    }
+
+                    Text {
+                        text: "Clear View";
+                        color: Theme.text-secondary;
+                        font-size: 11px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                Rectangle {
+                    horizontal-stretch: 1;
+                }
+
+                // Close Button
+                Rectangle {
+                    width: 70px;
+                    height: 28px;
+                    background: closeActionTouch.pressed ? #1f1f1f : (closeActionTouch.has-hover ? #383838 : #2c2c2c);
+                    border-color: #444444;
+                    border-width: 1px;
+                    border-radius: 4px;
+
+                    closeActionTouch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.close();
+                            root.is_open = false;
+                        }
+                    }
+
+                    Text {
+                        text: "Close";
+                        color: Theme.text-secondary;
+                        font-size: 11px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+}

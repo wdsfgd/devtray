@@ -1,0 +1,163 @@
+import { Theme } from "theme.slint";
+
+export component ConfirmDialog inherits Rectangle {
+    in-out property <bool> is_open: false;
+    in property <string> title: "Confirm";
+    in property <string> message: "";
+    in property <string> sub_message: "";
+    in property <string> confirm_text: "OK";
+    in property <bool> is_destructive: false;
+    in-out property <string> context_id: "";
+
+    callback confirmed(string /* context_id */);
+    callback cancelled();
+
+    visible: root.is_open;
+    z: 100;
+    x: 0;
+    y: 0;
+    width: 100%;
+    height: 100%;
+    background: Theme.modal-backdrop;
+
+    // Intercept clicks on background
+    TouchArea {}
+
+    dialog_box := Rectangle {
+        width: min(root.width - 24px, 360px);
+        background: Theme.card-bg;
+        border-color: Theme.border;
+        border-width: 1px;
+        border-radius: 8px;
+        clip: true;
+
+        VerticalLayout {
+            padding: 16px;
+            spacing: 12px;
+
+            // Header
+            HorizontalLayout {
+                height: 24px;
+                alignment: space-between;
+
+                Text {
+                    text: root.title;
+                    color: Theme.text-primary;
+                    font-size: 14px;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                }
+
+                Rectangle {
+                    width: 22px;
+                    height: 22px;
+                    border-radius: 11px;
+                    background: closeBtnTouch.has-hover ? #3a3a3a : transparent;
+
+                    closeBtnTouch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.cancelled();
+                            root.is_open = false;
+                        }
+                    }
+
+                    Text {
+                        text: "✕";
+                        color: #999999;
+                        font-size: 11px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            // Body message
+            VerticalLayout {
+                spacing: 6px;
+
+                if root.message != "" : Text {
+                    text: root.message;
+                    color: Theme.text-primary;
+                    font-size: 13px;
+                    font-weight: 700;
+                    wrap: word-wrap;
+                }
+
+                if root.sub_message != "" : Text {
+                    text: root.sub_message;
+                    color: Theme.text-muted;
+                    font-size: 12px;
+                    wrap: word-wrap;
+                }
+            }
+
+            // Spacing before buttons
+            Rectangle {
+                height: 4px;
+            }
+
+            // Buttons
+            HorizontalLayout {
+                height: 30px;
+                spacing: 8px;
+                alignment: end;
+
+                // Cancel Button
+                Rectangle {
+                    width: 70px;
+                    height: 30px;
+                    background: cancelBtnTouch.pressed ? #1f1f1f : (cancelBtnTouch.has-hover ? #383838 : #2c2c2c);
+                    border-color: #444444;
+                    border-width: 1px;
+                    border-radius: 4px;
+
+                    cancelBtnTouch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.cancelled();
+                            root.is_open = false;
+                        }
+                    }
+
+                    Text {
+                        text: "Cancel";
+                        color: Theme.text-secondary;
+                        font-size: 12px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                // Confirm Button
+                Rectangle {
+                    width: 80px;
+                    height: 30px;
+                    background: root.is_destructive ?
+                        (confirmBtnTouch.pressed ? Theme.danger-pressed : (confirmBtnTouch.has-hover ? Theme.danger-hover : Theme.danger)) :
+                        (confirmBtnTouch.pressed ? Theme.accent-pressed : (confirmBtnTouch.has-hover ? Theme.accent-hover : Theme.accent));
+                    border-color: root.is_destructive ? Theme.danger-hover : Theme.accent;
+                    border-width: 1px;
+                    border-radius: 4px;
+
+                    confirmBtnTouch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.confirmed(root.context_id);
+                            root.is_open = false;
+                        }
+                    }
+
+                    Text {
+                        text: root.confirm_text;
+                        color: #ffffff;
+                        font-size: 12px;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+}
