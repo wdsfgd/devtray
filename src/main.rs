@@ -39,6 +39,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 5. Spawn DevTraySysTray::spawn(...) for system tray integration
     let _tray_handle = DevTraySysTray::spawn(controller.clone(), main_window.as_weak());
 
+    // Release any transient startup initialization heap allocations
+    #[cfg(target_os = "linux")]
+    unsafe {
+        libc::malloc_trim(0);
+    }
+
     // 6. Setup a slint::Timer to periodically sync running process status every 1 second
     let timer = slint::Timer::default();
     {

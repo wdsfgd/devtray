@@ -6,7 +6,7 @@ authors = ["DevTray Contributors"]
 description = "A lightweight system tray application to manage background development services"
 
 [dependencies]
-slint = { version = "1.17.1", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "renderer-femtovg", "accessibility"] }
+slint = { version = "1.17.1", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software"] }
 ksni = { version = "0.3.6", features = ["blocking"] }
 image = { version = "0.25.10", default-features = false, features = ["png"] }
 serde = { version = "1.0", features = ["derive"] }
@@ -22,3 +22,11 @@ slint-build = "1.17.1"
 
 [dev-dependencies]
 tempfile = "3.12"
+
+[profile.release]
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+
