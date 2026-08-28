@@ -2,11 +2,11 @@ use std::fs;
 use std::time::Duration;
 use tempfile::tempdir;
 
-use devtray::bridge::TaskManagerBridge;
 use devtray::core::config::ConfigManager;
 use devtray::core::logs::LogBroadcaster;
 use devtray::core::model::TaskConfig;
 use devtray::core::process::ProcessManager;
+use devtray::gui::bridge::SlintAppController;
 
 #[test]
 fn test_end_to_end_task_management() {
@@ -138,10 +138,10 @@ fn test_end_to_end_bridge_full_lifecycle() {
     let broadcaster = LogBroadcaster::new(logs_dir.clone(), 500);
     let pm = ProcessManager::new(broadcaster.clone());
 
-    let bridge = TaskManagerBridge::with_managers(cm, pm, broadcaster);
+    let controller = SlintAppController::new(cm, pm, broadcaster);
 
-    // 1. Add tasks through bridge
-    let api_task = bridge
+    // 1. Add tasks through bridge controller
+    let api_task = controller
         .add_task(
             "API-Server",
             "echo 'api ready'; sleep 30",
@@ -149,7 +149,7 @@ fn test_end_to_end_bridge_full_lifecycle() {
             Some("Services"),
         )
         .expect("add API-Server should succeed");
-    let worker_task = bridge
+    let worker_task = controller
         .add_task(
             "Worker",
             "echo 'worker ready'; sleep 30",
@@ -157,22 +157,22 @@ fn test_end_to_end_bridge_full_lifecycle() {
             Some("Services"),
         )
         .expect("add Worker should succeed");
-    let standalone_task = bridge
+    let standalone_task = controller
         .add_task("OneOff", "echo 'oneoff running'", ".", None)
         .expect("add OneOff should succeed");
 
-    assert_eq!(bridge.tasks().len(), 3);
+    assert_eq!(controller.tasks().len(), 3);
 
     // 2. Start group "Services"
-    let rx_api = bridge.subscribe_logs("API-Server");
-    bridge
+    let rx_api = controller.subscribe_logs("API-Server");
+    controller
         .start_group("Services")
         .expect("start_group should succeed");
     std::thread::sleep(Duration::from_millis(150));
 
-    assert!(bridge.is_task_running(&api_task.id));
-    assert!(bridge.is_task_running(&worker_task.id));
-    assert!(!bridge.is_task_running(&standalone_task.id));
+    assert!(controller.is_task_running(&api_task.id));
+    assert!(controller.is_task_running(&worker_task.id));
+    assert!(!controller.is_task_running(&standalone_task.id));
 
     // 3. Verify live logs received through bridge subscriber
     let received_api_line = rx_api
@@ -181,26 +181,26 @@ fn test_end_to_end_bridge_full_lifecycle() {
     assert!(received_api_line.contains("api ready"));
 
     // 4. Verify recent logs query through bridge
-    let recent = bridge.get_recent_logs("API-Server");
+    let recent = controller.get_recent_logs("API-Server");
     assert!(recent.iter().any(|l| l.contains("api ready")));
 
     // 5. Stop group "Services"
-    bridge
+    controller
         .stop_group("Services")
         .expect("stop_group should succeed");
     std::thread::sleep(Duration::from_millis(150));
 
-    assert!(!bridge.is_task_running(&api_task.id));
-    assert!(!bridge.is_task_running(&worker_task.id));
+    assert!(!controller.is_task_running(&api_task.id));
+    assert!(!controller.is_task_running(&worker_task.id));
 
     // 6. Move tasks and verify reordering
-    assert_eq!(bridge.tasks()[0].id, api_task.id);
-    bridge.move_task(&worker_task.id, -1).unwrap();
-    assert_eq!(bridge.tasks()[0].id, worker_task.id);
+    assert_eq!(controller.tasks()[0].id, api_task.id);
+    controller.move_task(&worker_task.id, -1).unwrap();
+    assert_eq!(controller.tasks()[0].id, worker_task.id);
 
     // 7. Delete task and verify persistence
-    bridge.delete_task(&standalone_task.id).unwrap();
-    assert_eq!(bridge.tasks().len(), 2);
+    controller.delete_task(&standalone_task.id).unwrap();
+    assert_eq!(controller.tasks().len(), 2);
 
     let cm_verify = ConfigManager::with_path(config_file);
     let loaded = cm_verify.load().unwrap();
@@ -209,5 +209,5 @@ fn test_end_to_end_bridge_full_lifecycle() {
     assert_eq!(loaded[1].name, "API-Server");
 
     // Clean up
-    bridge.stop_all();
+    controller.stop_all();
 }

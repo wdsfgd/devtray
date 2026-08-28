@@ -13,6 +13,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if std::env::var("SLINT_BACKEND").is_err() {
         std::env::set_var("SLINT_BACKEND", "winit-software");
     }
+    if std::env::var("TOKIO_WORKER_THREADS").is_err() {
+        std::env::set_var("TOKIO_WORKER_THREADS", "1");
+    }
 
     // 2. Initialize LogBroadcaster, ProcessManager, ConfigManager, SlintAppController
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
