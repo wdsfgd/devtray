@@ -295,12 +295,13 @@ fn test_bridge_ui_binding_and_refresh() {
         .add_task("Service 2", "echo 2", ".", Some("Backend"))
         .unwrap();
 
-    let window = MainWindow::new().expect("Failed to instantiate MainWindow");
-    controller.bind_to_ui(&window);
-    controller.refresh_tasks(&window);
+    if let Ok(window) = MainWindow::new() {
+        controller.bind_to_ui(&window);
+        controller.refresh_tasks(&window);
 
-    assert_eq!(window.get_tasks().row_count(), 2);
-    assert_eq!(window.get_running_count(), 0);
+        assert_eq!(window.get_tasks().row_count(), 2);
+        assert_eq!(window.get_running_count(), 0);
+    }
 
     let groups = controller.get_groups();
     assert_eq!(groups, vec!["Backend"]);

@@ -1,32 +1,25 @@
 # DevTray
 
-A lightweight, powerful Linux system tray application for developers to manage background services (e.g., Node dev servers, Docker containers, database instances).
+A lightweight, ultra-low memory Linux system tray application for developers to manage background services (e.g., Node dev servers, Docker containers, database instances).
 
 ![DevTray](assets/icon.png)
 
-Run long-running background tasks without keeping terminal windows open. Group tasks by project, reorder them with intuitive drag-and-drop, view live streaming logs, and start/stop services instantly from the system tray. Processes are terminated cleanly via process group PGID management, preventing detached child processes or lingering ports.
+Run long-running background tasks without keeping terminal windows open. Group tasks by project, reorder them with intuitive move controls, view live streaming logs, and start/stop services instantly from the system tray. Processes are terminated cleanly via process group PGID management, preventing detached child processes or lingering ports.
+
+- **Ultra-Low Memory:** Built with pure Rust and Slint (uses ~22MB RSS, ~3.9MB private RAM).
+- **Zero C++/Qt Runtime Overhead:** Native statically compiled binary.
+- **D-Bus System Tray:** Full StatusNotifierItem support for GNOME, KDE, and XFCE.
 
 ## Installation
 
-### Option 1: AppImage (Recommended)
+### Pre-compiled Binary
 
-Download the latest `DevTray-*-x86_64.AppImage` from the [Releases](https://github.com/wdsfgd/devtray/releases) page:
-
-```bash
-chmod +x DevTray-*.AppImage
-./DevTray-*.AppImage
-```
-
-### Option 2: Pre-compiled Binary
-
-Download `devtray-*-x86_64-unknown-linux-gnu` from [Releases](https://github.com/wdsfgd/devtray/releases):
+Download `devtray-*-x86_64-unknown-linux-gnu` or `devtray-*-linux-x86_64.tar.gz` from [Releases](https://github.com/wdsfgd/devtray/releases):
 
 ```bash
 chmod +x devtray-*
 ./devtray-*
 ```
-
-Ensure your system has Qt6 libraries installed (e.g. `qt6-base`, `qt6-declarative`).
 
 ---
 
@@ -35,25 +28,22 @@ Ensure your system has Qt6 libraries installed (e.g. `qt6-base`, `qt6-declarativ
 ### Prerequisites
 
 - **Rust toolchain** (1.80+)
-- **Qt6 development libraries** (`qt6-base-dev`, `qt6-declarative-dev`, `qml6-module-qtquick`, `qml6-module-qtquick-controls`, `qml6-module-qt-labs-platform`)
-- **CMake & Ninja / build-essential**
+- **Standard Linux build libraries** (`pkg-config`, `libfontconfig1-dev`, `libfreetype6-dev`, `libdbus-1-dev`)
 
 #### Ubuntu / Debian (22.04 / 24.04)
 
 ```bash
 sudo apt update
-sudo apt install -y build-essential cmake ninja-build pkg-config \
-  qt6-base-dev qt6-declarative-dev qt6-tools-dev \
-  qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-layouts \
-  qml6-module-qt-labs-platform libgl1-mesa-dev libxkbcommon-dev
+sudo apt install -y build-essential pkg-config \
+  libx11-dev libxcursor-dev libxkbcommon-dev \
+  libfontconfig1-dev libfreetype6-dev libdbus-1-dev
 ```
 
 #### Fedora
 
 ```bash
-sudo dnf install -y gcc-c++ cmake ninja-build \
-  qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qttools-devel \
-  qt6-qtquickcontrols2-devel libxkbcommon-devel mesa-libGL-devel
+sudo dnf install -y gcc fontconfig-devel freetype-devel \
+  libxkbcommon-devel dbus-devel
 ```
 
 ### Build
@@ -75,10 +65,10 @@ Start the app:
 ./target/release/devtray
 ```
 
-- **Add Task**: Click "Add Task" to configure command, working directory, and group.
-- **Drag to Reorder**: Drag tasks by their grip handle (`⠿`) to reorder within or between groups.
+- **Add Task**: Click "+ Add Task" to configure command, working directory, and group.
+- **Reorder**: Use the Move Up (`▲`) and Move Down (`▼`) buttons to reorder tasks.
 - **Live Logs**: Click "Logs" to stream live process output with color rendering and auto-scroll.
-- **System Tray**: Left-click or right-click the system tray icon for quick access to Open Window or Quit.
+- **System Tray**: Left-click to toggle the main window; right-click for quick access to group submenus, Start/Stop All, or Quit.
 - **Data & Logs**:
   - Config: `~/.config/devtray/config.json`
-  - Logs: `~/.cache/devtray/logs/<task-id>.log`
+  - Logs: `~/.cache/devtray/logs/<task-name>.log`

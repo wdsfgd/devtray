@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name to release (e.g. v2.0.0)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -21,81 +27,57 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Install Qt6 and build dependencies
+      - name: Install build dependencies & Xvfb
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
-            cmake \
-            ninja-build \
             pkg-config \
-            qt6-base-dev \
-            qt6-base-private-dev \
-            qt6-declarative-dev \
-            qt6-tools-dev \
-            qml6-module-qtquick \
-            qml6-module-qtquick-controls \
-            qml6-module-qtquick-layouts \
-            qml6-module-qtquick-templates \
-            qml6-module-qtquick-window \
-            qml6-module-qt-labs-platform \
-            libgl1-mesa-dev \
+            libx11-dev \
+            libxcursor-dev \
             libxkbcommon-dev \
-            libx11-xcb-dev \
-            libxrender-dev \
-            libxi-dev \
-            file \
-            patchelf \
-            libfuse2
+            libfontconfig1-dev \
+            libfreetype6-dev \
+            libdbus-1-dev \
+            xvfb
 
       - name: Run Tests
-        run: cargo test --verbose
+        run: xvfb-run --auto-servernum cargo test --verbose
 
       - name: Build Release Binary
         run: cargo build --release
 
-      - name: Build AppImage
-        env:
-          APPIMAGE_EXTRACT_AND_RUN: 1
-          QML_SOURCES_PATHS: ${{ github.workspace }}/qml
+      - name: Package Release Assets
         run: |
           set -e
-          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          TAG="${{ github.event.inputs.tag_name }}"
+          if [ -z "$TAG" ]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          if [ -z "$TAG" ] || [ "$TAG" = "main" ]; then
+            TAG="v2.0.0"
+          fi
+          echo "TAG=$TAG" >> $GITHUB_ENV
 
-          # Create AppDir structure
-          mkdir -p AppDir/usr/bin
-          mkdir -p AppDir/usr/share/applications
-          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          # Standalone release binary
+          cp target/release/devtray "devtray-${TAG}-x86_64-unknown-linux-gnu"
 
-          cp target/release/devtray AppDir/usr/bin/devtray
-          cp assets/devtray.desktop AppDir/usr/share/applications/devtray.desktop
-          cp assets/icon.png AppDir/usr/share/icons/hicolor/256x256/apps/devtray.png
-          cp assets/icon.png AppDir/devtray.png
+          # Tarball package with desktop entry and icon
+          mkdir -p "devtray-${TAG}"
+          cp target/release/devtray "devtray-${TAG}/devtray"
+          cp README.md "devtray-${TAG}/"
+          mkdir -p "devtray-${TAG}/assets"
+          cp assets/devtray.desktop "devtray-${TAG}/assets/"
+          cp assets/icon.png "devtray-${TAG}/assets/"
+          tar -czf "devtray-${TAG}-linux-x86_64.tar.gz" "devtray-${TAG}"
 
-          # Download linuxdeploy and qt plugin
-          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-          wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
-          chmod +x linuxdeploy*.AppImage
-
-          # Run linuxdeploy
-          ./linuxdeploy-x86_64.AppImage \
-            --appdir AppDir \
-            --desktop-file AppDir/usr/share/applications/devtray.desktop \
-            --icon-file assets/icon.png \
-            --plugin qt \
-            --output appimage
-
-          # Standardize release filenames
-          mv DevTray-*.AppImage "DevTray-${TAG_NAME}-x86_64.AppImage"
-          cp target/release/devtray "devtray-${TAG_NAME}-x86_64-unknown-linux-gnu"
-
-          # Verify files exist
-          ls -la DevTray-*.AppImage "devtray-${TAG_NAME}-x86_64-unknown-linux-gnu"
+          ls -la "devtray-${TAG}-x86_64-unknown-linux-gnu" "devtray-${TAG}-linux-x86_64.tar.gz"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.TAG }}
           files: |
-            DevTray-*-x86_64.AppImage
             devtray-*-x86_64-unknown-linux-gnu
+            devtray-*-linux-x86_64.tar.gz
           generate_release_notes: true
