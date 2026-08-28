@@ -20,12 +20,14 @@ export component ConfirmDialog inherits Rectangle {
     height: 100%;
     background: Theme.modal-backdrop;
 
-    // Intercept clicks on background
+    // Intercept clicks on backdrop
     TouchArea {}
 
     dialog_box := Rectangle {
-        width: min(root.width - 24px, 360px);
-        background: Theme.card-bg;
+        width: min(root.width - 32px, 360px);
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+        background: #242424;
         border-color: Theme.border;
         border-width: 1px;
         border-radius: 8px;
@@ -34,6 +36,7 @@ export component ConfirmDialog inherits Rectangle {
         VerticalLayout {
             padding: 16px;
             spacing: 12px;
+            alignment: start;
 
             // Header
             HorizontalLayout {
@@ -49,10 +52,10 @@ export component ConfirmDialog inherits Rectangle {
                 }
 
                 Rectangle {
-                    width: 22px;
-                    height: 22px;
-                    border-radius: 11px;
-                    background: closeBtnTouch.has-hover ? #3a3a3a : transparent;
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 12px;
+                    background: closeBtnTouch.has-hover ? #383838 : transparent;
 
                     closeBtnTouch := TouchArea {
                         mouse-cursor: pointer;
@@ -72,9 +75,9 @@ export component ConfirmDialog inherits Rectangle {
                 }
             }
 
-            // Body message
+            // Body Message
             VerticalLayout {
-                spacing: 6px;
+                spacing: 4px;
 
                 if root.message != "" : Text {
                     text: root.message;
@@ -92,25 +95,20 @@ export component ConfirmDialog inherits Rectangle {
                 }
             }
 
-            // Spacing before buttons
-            Rectangle {
-                height: 4px;
-            }
-
             // Buttons
             HorizontalLayout {
-                height: 30px;
+                height: 32px;
                 spacing: 8px;
                 alignment: end;
 
                 // Cancel Button
                 Rectangle {
-                    width: 70px;
-                    height: 30px;
-                    background: cancelBtnTouch.pressed ? #1f1f1f : (cancelBtnTouch.has-hover ? #383838 : #2c2c2c);
+                    width: 72px;
+                    height: 32px;
+                    background: cancelBtnTouch.pressed ? #1a1a1a : (cancelBtnTouch.has-hover ? #383838 : #2c2c2c);
                     border-color: #444444;
                     border-width: 1px;
-                    border-radius: 4px;
+                    border-radius: 5px;
 
                     cancelBtnTouch := TouchArea {
                         mouse-cursor: pointer;
@@ -124,6 +122,7 @@ export component ConfirmDialog inherits Rectangle {
                         text: "Cancel";
                         color: Theme.text-secondary;
                         font-size: 12px;
+                        font-weight: 500;
                         horizontal-alignment: center;
                         vertical-alignment: center;
                     }
@@ -132,13 +131,11 @@ export component ConfirmDialog inherits Rectangle {
                 // Confirm Button
                 Rectangle {
                     width: 80px;
-                    height: 30px;
+                    height: 32px;
                     background: root.is_destructive ?
                         (confirmBtnTouch.pressed ? Theme.danger-pressed : (confirmBtnTouch.has-hover ? Theme.danger-hover : Theme.danger)) :
                         (confirmBtnTouch.pressed ? Theme.accent-pressed : (confirmBtnTouch.has-hover ? Theme.accent-hover : Theme.accent));
-                    border-color: root.is_destructive ? Theme.danger-hover : Theme.accent;
-                    border-width: 1px;
-                    border-radius: 4px;
+                    border-radius: 5px;
 
                     confirmBtnTouch := TouchArea {
                         mouse-cursor: pointer;

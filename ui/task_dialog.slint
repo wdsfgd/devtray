@@ -21,12 +21,14 @@ export component TaskDialog inherits Rectangle {
     height: 100%;
     background: Theme.modal-backdrop;
 
-    // Intercept clicks on background
+    // Intercept clicks on backdrop
     TouchArea {}
 
     dialog_box := Rectangle {
-        width: min(root.width - 24px, 420px);
-        background: Theme.card-bg;
+        width: min(root.width - 32px, 380px);
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+        background: #242424;
         border-color: Theme.border;
         border-width: 1px;
         border-radius: 8px;
@@ -35,8 +37,9 @@ export component TaskDialog inherits Rectangle {
         VerticalLayout {
             padding: 16px;
             spacing: 12px;
+            alignment: start;
 
-            // Header
+            // Header Row
             HorizontalLayout {
                 height: 24px;
                 alignment: space-between;
@@ -50,10 +53,10 @@ export component TaskDialog inherits Rectangle {
                 }
 
                 Rectangle {
-                    width: 22px;
-                    height: 22px;
-                    border-radius: 11px;
-                    background: closeBtnTouch.has-hover ? #3a3a3a : transparent;
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 12px;
+                    background: closeBtnTouch.has-hover ? #383838 : transparent;
 
                     closeBtnTouch := TouchArea {
                         mouse-cursor: pointer;
@@ -74,7 +77,7 @@ export component TaskDialog inherits Rectangle {
                 }
             }
 
-            // Name Field
+            // Field 1: Name
             VerticalLayout {
                 spacing: 4px;
 
@@ -82,14 +85,15 @@ export component TaskDialog inherits Rectangle {
                     text: "Name:";
                     color: Theme.text-secondary;
                     font-size: 12px;
+                    font-weight: 600;
                 }
 
                 Rectangle {
-                    height: 32px;
+                    height: 34px;
                     background: Theme.input-bg;
                     border-color: (root.error_message != "" && root.name_text == "") ? Theme.danger : (nameInput.has-focus ? Theme.accent : Theme.border);
                     border-width: (nameInput.has-focus || (root.error_message != "" && root.name_text == "")) ? 2px : 1px;
-                    border-radius: 4px;
+                    border-radius: 5px;
 
                     nameInput := TextInput {
                         x: 8px;
@@ -121,7 +125,7 @@ export component TaskDialog inherits Rectangle {
                 }
             }
 
-            // Command Field
+            // Field 2: Command
             VerticalLayout {
                 spacing: 4px;
 
@@ -129,14 +133,15 @@ export component TaskDialog inherits Rectangle {
                     text: "Command:";
                     color: Theme.text-secondary;
                     font-size: 12px;
+                    font-weight: 600;
                 }
 
                 Rectangle {
-                    height: 32px;
+                    height: 34px;
                     background: Theme.input-bg;
                     border-color: (root.error_message != "" && root.command_text == "") ? Theme.danger : (cmdInput.has-focus ? Theme.accent : Theme.border);
                     border-width: (cmdInput.has-focus || (root.error_message != "" && root.command_text == "")) ? 2px : 1px;
-                    border-radius: 4px;
+                    border-radius: 5px;
 
                     cmdInput := TextInput {
                         x: 8px;
@@ -168,7 +173,7 @@ export component TaskDialog inherits Rectangle {
                 }
             }
 
-            // Working Directory Field
+            // Field 3: Working Directory
             VerticalLayout {
                 spacing: 4px;
 
@@ -176,14 +181,15 @@ export component TaskDialog inherits Rectangle {
                     text: "Working Directory:";
                     color: Theme.text-secondary;
                     font-size: 12px;
+                    font-weight: 600;
                 }
 
                 Rectangle {
-                    height: 32px;
+                    height: 34px;
                     background: Theme.input-bg;
                     border-color: dirInput.has-focus ? Theme.accent : Theme.border;
                     border-width: dirInput.has-focus ? 2px : 1px;
-                    border-radius: 4px;
+                    border-radius: 5px;
 
                     dirInput := TextInput {
                         x: 8px;
@@ -210,7 +216,7 @@ export component TaskDialog inherits Rectangle {
                 }
             }
 
-            // Group Field
+            // Field 4: Group
             VerticalLayout {
                 spacing: 4px;
 
@@ -218,14 +224,15 @@ export component TaskDialog inherits Rectangle {
                     text: "Group (Optional):";
                     color: Theme.text-secondary;
                     font-size: 12px;
+                    font-weight: 600;
                 }
 
                 Rectangle {
-                    height: 32px;
+                    height: 34px;
                     background: Theme.input-bg;
                     border-color: groupInput.has-focus ? Theme.accent : Theme.border;
                     border-width: groupInput.has-focus ? 2px : 1px;
-                    border-radius: 4px;
+                    border-radius: 5px;
 
                     groupInput := TextInput {
                         x: 8px;
@@ -252,7 +259,7 @@ export component TaskDialog inherits Rectangle {
                 }
             }
 
-            // Error message display
+            // Error Message
             if root.error_message != "" : Text {
                 text: root.error_message;
                 color: #ff6b6b;
@@ -261,18 +268,18 @@ export component TaskDialog inherits Rectangle {
 
             // Action Buttons
             HorizontalLayout {
-                height: 30px;
+                height: 32px;
                 spacing: 8px;
                 alignment: end;
 
                 // Cancel Button
                 Rectangle {
-                    width: 72px;
-                    height: 30px;
-                    background: cancelBtnTouch.pressed ? #1f1f1f : (cancelBtnTouch.has-hover ? #383838 : #2c2c2c);
+                    width: 76px;
+                    height: 32px;
+                    background: cancelBtnTouch.pressed ? #1a1a1a : (cancelBtnTouch.has-hover ? #383838 : #2c2c2c);
                     border-color: #444444;
                     border-width: 1px;
-                    border-radius: 4px;
+                    border-radius: 5px;
 
                     cancelBtnTouch := TouchArea {
                         mouse-cursor: pointer;
@@ -287,6 +294,7 @@ export component TaskDialog inherits Rectangle {
                         text: "Cancel";
                         color: Theme.text-secondary;
                         font-size: 12px;
+                        font-weight: 500;
                         horizontal-alignment: center;
                         vertical-alignment: center;
                     }
@@ -294,12 +302,12 @@ export component TaskDialog inherits Rectangle {
 
                 // Save Button
                 Rectangle {
-                    width: 72px;
-                    height: 30px;
+                    width: 80px;
+                    height: 32px;
                     background: saveBtnTouch.pressed ? Theme.accent-pressed : (saveBtnTouch.has-hover ? Theme.accent-hover : Theme.accent);
                     border-color: Theme.accent;
                     border-width: 1px;
-                    border-radius: 4px;
+                    border-radius: 5px;
 
                     saveBtnTouch := TouchArea {
                         mouse-cursor: pointer;

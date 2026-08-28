@@ -16,14 +16,16 @@ export component LogViewer inherits Rectangle {
     height: 100%;
     background: Theme.modal-backdrop;
 
-    // Intercept clicks on background
+    // Intercept clicks on backdrop
     TouchArea {}
 
     // Modal Dialog Box
     dialog_box := Rectangle {
         width: min(root.width - 24px, 560px);
         height: min(root.height - 30px, 440px);
-        background: Theme.card-bg;
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+        background: #242424;
         border-color: Theme.border;
         border-width: 1px;
         border-radius: 8px;
@@ -49,10 +51,10 @@ export component LogViewer inherits Rectangle {
                 }
 
                 Rectangle {
-                    width: 22px;
-                    height: 22px;
-                    border-radius: 11px;
-                    background: closeBtnTouch.has-hover ? #3a3a3a : transparent;
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 12px;
+                    background: closeBtnTouch.has-hover ? #383838 : transparent;
 
                     closeBtnTouch := TouchArea {
                         mouse-cursor: pointer;
@@ -78,7 +80,7 @@ export component LogViewer inherits Rectangle {
                 background: Theme.terminal-bg;
                 border-color: Theme.border;
                 border-width: 1px;
-                border-radius: 4px;
+                border-radius: 5px;
                 clip: true;
 
                 ScrollView {
@@ -110,17 +112,17 @@ export component LogViewer inherits Rectangle {
 
             // Action Toolbar
             HorizontalLayout {
-                height: 28px;
+                height: 30px;
                 spacing: 8px;
 
                 // Clear View Button
                 Rectangle {
-                    width: 85px;
-                    height: 28px;
-                    background: clearBtnTouch.pressed ? #1f1f1f : (clearBtnTouch.has-hover ? #383838 : #2c2c2c);
+                    width: 88px;
+                    height: 30px;
+                    background: clearBtnTouch.pressed ? #1a1a1a : (clearBtnTouch.has-hover ? #383838 : #2c2c2c);
                     border-color: #444444;
                     border-width: 1px;
-                    border-radius: 4px;
+                    border-radius: 5px;
 
                     clearBtnTouch := TouchArea {
                         mouse-cursor: pointer;
@@ -131,6 +133,7 @@ export component LogViewer inherits Rectangle {
                         text: "Clear View";
                         color: Theme.text-secondary;
                         font-size: 11px;
+                        font-weight: 500;
                         horizontal-alignment: center;
                         vertical-alignment: center;
                     }
@@ -142,12 +145,12 @@ export component LogViewer inherits Rectangle {
 
                 // Close Button
                 Rectangle {
-                    width: 70px;
-                    height: 28px;
-                    background: closeActionTouch.pressed ? #1f1f1f : (closeActionTouch.has-hover ? #383838 : #2c2c2c);
+                    width: 72px;
+                    height: 30px;
+                    background: closeActionTouch.pressed ? #1a1a1a : (closeActionTouch.has-hover ? #383838 : #2c2c2c);
                     border-color: #444444;
                     border-width: 1px;
-                    border-radius: 4px;
+                    border-radius: 5px;
 
                     closeActionTouch := TouchArea {
                         mouse-cursor: pointer;
@@ -161,6 +164,7 @@ export component LogViewer inherits Rectangle {
                         text: "Close";
                         color: Theme.text-secondary;
                         font-size: 11px;
+                        font-weight: 500;
                         horizontal-alignment: center;
                         vertical-alignment: center;
                     }
