@@ -24,319 +24,324 @@ export component TaskDialog inherits Rectangle {
     // Intercept clicks on backdrop
     TouchArea {}
 
-    dialog_box := Rectangle {
-        width: min(root.width - 32px, 380px);
-        x: (root.width - self.width) / 2;
-        y: (root.height - self.height) / 2;
-        background: #242424;
-        border-color: Theme.border;
-        border-width: 1px;
-        border-radius: 8px;
-        clip: true;
+    // Centering Container
+    VerticalLayout {
+        alignment: center;
+        padding: 16px;
 
-        VerticalLayout {
-            padding: 16px;
-            spacing: 12px;
-            alignment: start;
+        HorizontalLayout {
+            alignment: center;
 
-            // Header Row
-            HorizontalLayout {
-                height: 24px;
-                alignment: space-between;
+            dialog_box := Rectangle {
+                width: min(root.width - 32px, 380px);
+                background: #242424;
+                border-color: #383838;
+                border-width: 1px;
+                border-radius: 10px;
+                clip: true;
 
-                Text {
-                    text: root.is_edit ? "Edit Task" : "Add Task";
-                    color: Theme.text-primary;
-                    font-size: 14px;
-                    font-weight: 700;
-                    vertical-alignment: center;
-                }
+                VerticalLayout {
+                    padding: 18px;
+                    spacing: 14px;
 
-                Rectangle {
-                    width: 24px;
-                    height: 24px;
-                    border-radius: 12px;
-                    background: closeBtnTouch.has-hover ? #383838 : transparent;
+                    // Header Row
+                    HorizontalLayout {
+                        height: 24px;
+                        alignment: space-between;
 
-                    closeBtnTouch := TouchArea {
-                        mouse-cursor: pointer;
-                        clicked => {
-                            root.cancel();
-                            root.is_open = false;
-                            root.error_message = "";
+                        Text {
+                            text: root.is_edit ? "Edit Task" : "Add Task";
+                            color: Theme.text-primary;
+                            font-size: 15px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+
+                        Rectangle {
+                            width: 24px;
+                            height: 24px;
+                            border-radius: 12px;
+                            background: closeBtnTouch.has-hover ? #383838 : transparent;
+
+                            closeBtnTouch := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => {
+                                    root.cancel();
+                                    root.is_open = false;
+                                    root.error_message = "";
+                                }
+                            }
+
+                            Text {
+                                text: "✕";
+                                color: #999999;
+                                font-size: 11px;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
                         }
                     }
 
-                    Text {
-                        text: "✕";
-                        color: #999999;
+                    // Field 1: Name
+                    VerticalLayout {
+                        spacing: 4px;
+
+                        Text {
+                            text: "Name:";
+                            color: Theme.text-secondary;
+                            font-size: 12px;
+                            font-weight: 600;
+                        }
+
+                        Rectangle {
+                            height: 34px;
+                            background: Theme.input-bg;
+                            border-color: (root.error_message != "" && root.name_text == "") ? Theme.danger : (nameInput.has-focus ? Theme.accent : Theme.border);
+                            border-width: (nameInput.has-focus || (root.error_message != "" && root.name_text == "")) ? 2px : 1px;
+                            border-radius: 5px;
+
+                            nameInput := TextInput {
+                                x: 8px;
+                                y: 0px;
+                                width: parent.width - 16px;
+                                height: parent.height;
+                                vertical-alignment: center;
+                                text <=> root.name_text;
+                                color: Theme.text-primary;
+                                font-size: 12px;
+                                single-line: true;
+                                edited => {
+                                    if root.error_message != "" && root.name_text != "" {
+                                        root.error_message = "";
+                                    }
+                                }
+                            }
+
+                            if root.name_text == "" && !nameInput.has-focus : Text {
+                                x: 8px;
+                                y: 0px;
+                                width: parent.width - 16px;
+                                height: parent.height;
+                                vertical-alignment: center;
+                                text: "e.g. Frontend Server";
+                                color: Theme.text-muted;
+                                font-size: 12px;
+                            }
+                        }
+                    }
+
+                    // Field 2: Command
+                    VerticalLayout {
+                        spacing: 4px;
+
+                        Text {
+                            text: "Command:";
+                            color: Theme.text-secondary;
+                            font-size: 12px;
+                            font-weight: 600;
+                        }
+
+                        Rectangle {
+                            height: 34px;
+                            background: Theme.input-bg;
+                            border-color: (root.error_message != "" && root.command_text == "") ? Theme.danger : (cmdInput.has-focus ? Theme.accent : Theme.border);
+                            border-width: (cmdInput.has-focus || (root.error_message != "" && root.command_text == "")) ? 2px : 1px;
+                            border-radius: 5px;
+
+                            cmdInput := TextInput {
+                                x: 8px;
+                                y: 0px;
+                                width: parent.width - 16px;
+                                height: parent.height;
+                                vertical-alignment: center;
+                                text <=> root.command_text;
+                                color: Theme.text-primary;
+                                font-size: 12px;
+                                single-line: true;
+                                edited => {
+                                    if root.error_message != "" && root.command_text != "" {
+                                        root.error_message = "";
+                                    }
+                                }
+                            }
+
+                            if root.command_text == "" && !cmdInput.has-focus : Text {
+                                x: 8px;
+                                y: 0px;
+                                width: parent.width - 16px;
+                                height: parent.height;
+                                vertical-alignment: center;
+                                text: "e.g. npm run dev";
+                                color: Theme.text-muted;
+                                font-size: 12px;
+                            }
+                        }
+                    }
+
+                    // Field 3: Working Directory
+                    VerticalLayout {
+                        spacing: 4px;
+
+                        Text {
+                            text: "Working Directory:";
+                            color: Theme.text-secondary;
+                            font-size: 12px;
+                            font-weight: 600;
+                        }
+
+                        Rectangle {
+                            height: 34px;
+                            background: Theme.input-bg;
+                            border-color: dirInput.has-focus ? Theme.accent : Theme.border;
+                            border-width: dirInput.has-focus ? 2px : 1px;
+                            border-radius: 5px;
+
+                            dirInput := TextInput {
+                                x: 8px;
+                                y: 0px;
+                                width: parent.width - 16px;
+                                height: parent.height;
+                                vertical-alignment: center;
+                                text <=> root.working_dir_text;
+                                color: Theme.text-primary;
+                                font-size: 12px;
+                                single-line: true;
+                            }
+
+                            if root.working_dir_text == "" && !dirInput.has-focus : Text {
+                                x: 8px;
+                                y: 0px;
+                                width: parent.width - 16px;
+                                height: parent.height;
+                                vertical-alignment: center;
+                                text: ".";
+                                color: Theme.text-muted;
+                                font-size: 12px;
+                            }
+                        }
+                    }
+
+                    // Field 4: Group
+                    VerticalLayout {
+                        spacing: 4px;
+
+                        Text {
+                            text: "Group (Optional):";
+                            color: Theme.text-secondary;
+                            font-size: 12px;
+                            font-weight: 600;
+                        }
+
+                        Rectangle {
+                            height: 34px;
+                            background: Theme.input-bg;
+                            border-color: groupInput.has-focus ? Theme.accent : Theme.border;
+                            border-width: groupInput.has-focus ? 2px : 1px;
+                            border-radius: 5px;
+
+                            groupInput := TextInput {
+                                x: 8px;
+                                y: 0px;
+                                width: parent.width - 16px;
+                                height: parent.height;
+                                vertical-alignment: center;
+                                text <=> root.group_text;
+                                color: Theme.text-primary;
+                                font-size: 12px;
+                                single-line: true;
+                            }
+
+                            if root.group_text == "" && !groupInput.has-focus : Text {
+                                x: 8px;
+                                y: 0px;
+                                width: parent.width - 16px;
+                                height: parent.height;
+                                vertical-alignment: center;
+                                text: "e.g. Web";
+                                color: Theme.text-muted;
+                                font-size: 12px;
+                            }
+                        }
+                    }
+
+                    // Error Message
+                    if root.error_message != "" : Text {
+                        text: root.error_message;
+                        color: #ff6b6b;
                         font-size: 11px;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
                     }
-                }
-            }
 
-            // Field 1: Name
-            VerticalLayout {
-                spacing: 4px;
+                    // Action Buttons
+                    HorizontalLayout {
+                        height: 32px;
+                        spacing: 8px;
+                        alignment: end;
 
-                Text {
-                    text: "Name:";
-                    color: Theme.text-secondary;
-                    font-size: 12px;
-                    font-weight: 600;
-                }
+                        // Cancel Button
+                        Rectangle {
+                            width: 76px;
+                            height: 32px;
+                            background: cancelBtnTouch.pressed ? #1a1a1a : (cancelBtnTouch.has-hover ? #383838 : #2c2c2c);
+                            border-color: #444444;
+                            border-width: 1px;
+                            border-radius: 5px;
 
-                Rectangle {
-                    height: 34px;
-                    background: Theme.input-bg;
-                    border-color: (root.error_message != "" && root.name_text == "") ? Theme.danger : (nameInput.has-focus ? Theme.accent : Theme.border);
-                    border-width: (nameInput.has-focus || (root.error_message != "" && root.name_text == "")) ? 2px : 1px;
-                    border-radius: 5px;
+                            cancelBtnTouch := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => {
+                                    root.cancel();
+                                    root.is_open = false;
+                                    root.error_message = "";
+                                }
+                            }
 
-                    nameInput := TextInput {
-                        x: 8px;
-                        y: 0px;
-                        width: parent.width - 16px;
-                        height: parent.height;
-                        vertical-alignment: center;
-                        text <=> root.name_text;
-                        color: Theme.text-primary;
-                        font-size: 12px;
-                        single-line: true;
-                        edited => {
-                            if root.error_message != "" && root.name_text != "" {
-                                root.error_message = "";
+                            Text {
+                                text: "Cancel";
+                                color: Theme.text-secondary;
+                                font-size: 12px;
+                                font-weight: 500;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
                             }
                         }
-                    }
 
-                    if root.name_text == "" && !nameInput.has-focus : Text {
-                        x: 8px;
-                        y: 0px;
-                        width: parent.width - 16px;
-                        height: parent.height;
-                        vertical-alignment: center;
-                        text: "e.g. Frontend Server";
-                        color: Theme.text-muted;
-                        font-size: 12px;
-                    }
-                }
-            }
+                        // Save Button
+                        Rectangle {
+                            width: 80px;
+                            height: 32px;
+                            background: saveBtnTouch.pressed ? Theme.accent-pressed : (saveBtnTouch.has-hover ? Theme.accent-hover : Theme.accent);
+                            border-radius: 5px;
 
-            // Field 2: Command
-            VerticalLayout {
-                spacing: 4px;
+                            saveBtnTouch := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => {
+                                    if root.name_text == "" {
+                                        root.error_message = "Task name cannot be empty";
+                                    } else if root.command_text == "" {
+                                        root.error_message = "Task command cannot be empty";
+                                    } else {
+                                        root.save(
+                                            root.task_id,
+                                            root.name_text,
+                                            root.command_text,
+                                            root.working_dir_text != "" ? root.working_dir_text : ".",
+                                            root.group_text
+                                        );
+                                        root.is_open = false;
+                                        root.error_message = "";
+                                    }
+                                }
+                            }
 
-                Text {
-                    text: "Command:";
-                    color: Theme.text-secondary;
-                    font-size: 12px;
-                    font-weight: 600;
-                }
-
-                Rectangle {
-                    height: 34px;
-                    background: Theme.input-bg;
-                    border-color: (root.error_message != "" && root.command_text == "") ? Theme.danger : (cmdInput.has-focus ? Theme.accent : Theme.border);
-                    border-width: (cmdInput.has-focus || (root.error_message != "" && root.command_text == "")) ? 2px : 1px;
-                    border-radius: 5px;
-
-                    cmdInput := TextInput {
-                        x: 8px;
-                        y: 0px;
-                        width: parent.width - 16px;
-                        height: parent.height;
-                        vertical-alignment: center;
-                        text <=> root.command_text;
-                        color: Theme.text-primary;
-                        font-size: 12px;
-                        single-line: true;
-                        edited => {
-                            if root.error_message != "" && root.command_text != "" {
-                                root.error_message = "";
+                            Text {
+                                text: "Save";
+                                color: #ffffff;
+                                font-size: 12px;
+                                font-weight: 700;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
                             }
                         }
-                    }
-
-                    if root.command_text == "" && !cmdInput.has-focus : Text {
-                        x: 8px;
-                        y: 0px;
-                        width: parent.width - 16px;
-                        height: parent.height;
-                        vertical-alignment: center;
-                        text: "e.g. npm run dev";
-                        color: Theme.text-muted;
-                        font-size: 12px;
-                    }
-                }
-            }
-
-            // Field 3: Working Directory
-            VerticalLayout {
-                spacing: 4px;
-
-                Text {
-                    text: "Working Directory:";
-                    color: Theme.text-secondary;
-                    font-size: 12px;
-                    font-weight: 600;
-                }
-
-                Rectangle {
-                    height: 34px;
-                    background: Theme.input-bg;
-                    border-color: dirInput.has-focus ? Theme.accent : Theme.border;
-                    border-width: dirInput.has-focus ? 2px : 1px;
-                    border-radius: 5px;
-
-                    dirInput := TextInput {
-                        x: 8px;
-                        y: 0px;
-                        width: parent.width - 16px;
-                        height: parent.height;
-                        vertical-alignment: center;
-                        text <=> root.working_dir_text;
-                        color: Theme.text-primary;
-                        font-size: 12px;
-                        single-line: true;
-                    }
-
-                    if root.working_dir_text == "" && !dirInput.has-focus : Text {
-                        x: 8px;
-                        y: 0px;
-                        width: parent.width - 16px;
-                        height: parent.height;
-                        vertical-alignment: center;
-                        text: ".";
-                        color: Theme.text-muted;
-                        font-size: 12px;
-                    }
-                }
-            }
-
-            // Field 4: Group
-            VerticalLayout {
-                spacing: 4px;
-
-                Text {
-                    text: "Group (Optional):";
-                    color: Theme.text-secondary;
-                    font-size: 12px;
-                    font-weight: 600;
-                }
-
-                Rectangle {
-                    height: 34px;
-                    background: Theme.input-bg;
-                    border-color: groupInput.has-focus ? Theme.accent : Theme.border;
-                    border-width: groupInput.has-focus ? 2px : 1px;
-                    border-radius: 5px;
-
-                    groupInput := TextInput {
-                        x: 8px;
-                        y: 0px;
-                        width: parent.width - 16px;
-                        height: parent.height;
-                        vertical-alignment: center;
-                        text <=> root.group_text;
-                        color: Theme.text-primary;
-                        font-size: 12px;
-                        single-line: true;
-                    }
-
-                    if root.group_text == "" && !groupInput.has-focus : Text {
-                        x: 8px;
-                        y: 0px;
-                        width: parent.width - 16px;
-                        height: parent.height;
-                        vertical-alignment: center;
-                        text: "e.g. Web";
-                        color: Theme.text-muted;
-                        font-size: 12px;
-                    }
-                }
-            }
-
-            // Error Message
-            if root.error_message != "" : Text {
-                text: root.error_message;
-                color: #ff6b6b;
-                font-size: 11px;
-            }
-
-            // Action Buttons
-            HorizontalLayout {
-                height: 32px;
-                spacing: 8px;
-                alignment: end;
-
-                // Cancel Button
-                Rectangle {
-                    width: 76px;
-                    height: 32px;
-                    background: cancelBtnTouch.pressed ? #1a1a1a : (cancelBtnTouch.has-hover ? #383838 : #2c2c2c);
-                    border-color: #444444;
-                    border-width: 1px;
-                    border-radius: 5px;
-
-                    cancelBtnTouch := TouchArea {
-                        mouse-cursor: pointer;
-                        clicked => {
-                            root.cancel();
-                            root.is_open = false;
-                            root.error_message = "";
-                        }
-                    }
-
-                    Text {
-                        text: "Cancel";
-                        color: Theme.text-secondary;
-                        font-size: 12px;
-                        font-weight: 500;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
-                }
-
-                // Save Button
-                Rectangle {
-                    width: 80px;
-                    height: 32px;
-                    background: saveBtnTouch.pressed ? Theme.accent-pressed : (saveBtnTouch.has-hover ? Theme.accent-hover : Theme.accent);
-                    border-color: Theme.accent;
-                    border-width: 1px;
-                    border-radius: 5px;
-
-                    saveBtnTouch := TouchArea {
-                        mouse-cursor: pointer;
-                        clicked => {
-                            if root.name_text == "" {
-                                root.error_message = "Task name cannot be empty";
-                            } else if root.command_text == "" {
-                                root.error_message = "Task command cannot be empty";
-                            } else {
-                                root.save(
-                                    root.task_id,
-                                    root.name_text,
-                                    root.command_text,
-                                    root.working_dir_text != "" ? root.working_dir_text : ".",
-                                    root.group_text
-                                );
-                                root.is_open = false;
-                                root.error_message = "";
-                            }
-                        }
-                    }
-
-                    Text {
-                        text: "Save";
-                        color: #ffffff;
-                        font-size: 12px;
-                        font-weight: 700;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
                     }
                 }
             }
