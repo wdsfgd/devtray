@@ -54,6 +54,7 @@ export component MainWindow inherits Window {
     callback stop_all();
     callback quit_app();
     callback clear_logs();
+    callback copy_logs();
 
     // Main layout
     VerticalLayout {
@@ -355,6 +356,10 @@ export component MainWindow inherits Window {
         is_open <=> root.log_viewer_open;
         task_name: root.log_viewer_task_name;
         log_text: root.log_viewer_text;
+
+        copy_logs => {
+            root.copy_logs();
+        }
 
         clear_view => {
             root.clear_logs();

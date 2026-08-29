@@ -1,6 +1,13 @@
-use devtray::core::logs::LogBroadcaster;
+use devtray::core::logs::{strip_ansi_codes, LogBroadcaster};
 use std::fs;
 use tempfile::tempdir;
+
+#[test]
+fn test_strip_ansi_codes() {
+    let raw = "\x1b[33m▲ NEXT_PUBLIC_ENABLE_SOCKS5_PROXY\x1b[0m in /path/.env";
+    let clean = strip_ansi_codes(raw);
+    assert_eq!(clean, "▲ NEXT_PUBLIC_ENABLE_SOCKS5_PROXY in /path/.env");
+}
 
 #[test]
 fn test_ring_buffer_capacity() {

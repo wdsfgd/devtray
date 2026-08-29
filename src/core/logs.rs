@@ -5,6 +5,30 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+/// Strips ANSI escape sequences (colors, styles, cursor commands) from text.
+pub fn strip_ansi_codes(input: &str) -> String {
+    let mut result = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c == '\x1b' {
+            if chars.peek() == Some(&'[') {
+                chars.next();
+                while let Some(&next) = chars.peek() {
+                    chars.next();
+                    if next.is_ascii_alphabetic() {
+                        break;
+                    }
+                }
+            }
+        } else {
+            result.push(c);
+        }
+    }
+
+    result
+}
+
 #[derive(Clone, Debug)]
 pub struct LogBroadcaster {
     log_dir: PathBuf,
@@ -25,7 +49,9 @@ impl LogBroadcaster {
         }
     }
 
-    pub fn append(&self, task_name: &str, line: &str) -> std::io::Result<()> {
+    pub fn append(&self, task_name: &str, raw_line: &str) -> std::io::Result<()> {
+        let line = strip_ansi_codes(raw_line);
+
         // Write to cached file handle
         {
             let mut files = self.files.lock().unwrap();
@@ -51,14 +77,14 @@ impl LogBroadcaster {
             while buf.len() >= self.max_history {
                 buf.pop_front();
             }
-            buf.push_back(line.to_string());
+            buf.push_back(line.clone());
         }
 
         // Notify subscribers
         {
             let mut senders_map = self.senders.lock().unwrap();
             if let Some(senders) = senders_map.get_mut(task_name) {
-                senders.retain(|s| s.send(line.to_string()).is_ok());
+                senders.retain(|s| s.send(line.clone()).is_ok());
             }
         }
 

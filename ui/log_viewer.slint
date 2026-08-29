@@ -5,6 +5,7 @@ export component LogViewer inherits Rectangle {
     in-out property <bool> is_open: false;
     in property <string> task_name: "";
     in property <string> log_text: "";
+    callback copy_logs();
     callback clear_view();
     callback close();
 
@@ -92,18 +93,14 @@ export component LogViewer inherits Rectangle {
 
                     log_layout := VerticalLayout {
                         alignment: start;
-                        padding: 4px;
+                        padding: 6px;
 
-                        TextInput {
-                            read-only: true;
-                            single-line: false;
+                        Text {
                             text: root.log_text;
                             color: Theme.terminal-text;
                             font-family: "DejaVu Sans Mono, monospace";
                             font-size: 11px;
                             wrap: word-wrap;
-                            selection-background-color: #27272a;
-                            selection-foreground-color: #ffffff;
                         }
                     }
                 }
@@ -123,7 +120,31 @@ export component LogViewer inherits Rectangle {
                 height: 28px;
                 spacing: 8px;
 
-                // Clear View Button
+                // Copy Logs Button
+                Rectangle {
+                    width: 78px;
+                    height: 28px;
+                    background: copyBtnTouch.pressed ? #18181b : (copyBtnTouch.has-hover ? #27272a : transparent);
+                    border-color: #27272a;
+                    border-width: 1px;
+                    border-radius: 5px;
+
+                    copyBtnTouch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.copy_logs(); }
+                    }
+
+                    Text {
+                        text: "Copy Logs";
+                        color: Theme.text-secondary;
+                        font-size: 11px;
+                        font-weight: 500;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                // Clear Logs Button
                 Rectangle {
                     width: 80px;
                     height: 28px;

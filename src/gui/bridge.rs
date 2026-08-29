@@ -524,7 +524,18 @@ impl SlintAppController {
             });
         }
 
-        // 9. Quit App
+        // 9. Copy Logs
+        {
+            let ui_weak = ui.as_weak();
+            ui.on_copy_logs(move || {
+                if let Some(ui) = ui_weak.upgrade() {
+                    let text = ui.get_log_viewer_text();
+                    copy_to_clipboard(text.as_str());
+                }
+            });
+        }
+
+        // 10. Quit App
         {
             let c = controller.clone();
             ui.on_quit_app(move || {
@@ -533,7 +544,7 @@ impl SlintAppController {
             });
         }
 
-        // 10. Process exit handler
+        // 11. Process exit handler
         {
             let c = controller.clone();
             let ui_weak = ui.as_weak();
@@ -548,5 +559,49 @@ impl SlintAppController {
                 .ok();
             });
         }
+    }
+}
+
+/// Copies the given text to the system clipboard across Wayland and X11 environments.
+pub fn copy_to_clipboard(text: &str) {
+    use std::io::Write;
+
+    // 1. Try wl-copy (Wayland)
+    if let Ok(mut child) = std::process::Command::new("wl-copy")
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+    {
+        if let Some(mut stdin) = child.stdin.take() {
+            let _ = stdin.write_all(text.as_bytes());
+        }
+        let _ = child.wait();
+        return;
+    }
+
+    // 2. Try xclip (X11)
+    if let Ok(mut child) = std::process::Command::new("xclip")
+        .arg("-selection")
+        .arg("clipboard")
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+    {
+        if let Some(mut stdin) = child.stdin.take() {
+            let _ = stdin.write_all(text.as_bytes());
+        }
+        let _ = child.wait();
+        return;
+    }
+
+    // 3. Try xsel (X11 fallback)
+    if let Ok(mut child) = std::process::Command::new("xsel")
+        .arg("--clipboard")
+        .arg("--input")
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+    {
+        if let Some(mut stdin) = child.stdin.take() {
+            let _ = stdin.write_all(text.as_bytes());
+        }
+        let _ = child.wait();
     }
 }
