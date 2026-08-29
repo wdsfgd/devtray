@@ -20,7 +20,7 @@ export component TaskCard inherits Rectangle {
     callback move_up();
     callback move_down();
 
-    height: 52px;
+    height: 56px;
     background: cardTouch.has-hover ? Theme.card-hover : Theme.card-bg;
     border-color: cardTouch.has-hover ? Theme.border-light : Theme.border;
     border-width: 1px;
@@ -29,20 +29,20 @@ export component TaskCard inherits Rectangle {
     cardTouch := TouchArea {}
 
     HorizontalLayout {
-        padding-left: 12px;
-        padding-right: 12px;
-        spacing: 12px;
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 10px;
 
-        // 1. Move Up / Down Buttons (strictly centered)
+        // 1. Move Up / Down Buttons (subtle chevrons)
         VerticalLayout {
             alignment: center;
-            width: 16px;
-            spacing: 3px;
+            width: 14px;
+            spacing: 2px;
 
             Rectangle {
-                width: 16px;
-                height: 14px;
-                background: (btnUp.has-hover && root.task.can_move_up) ? #3a3a3a : transparent;
+                width: 14px;
+                height: 12px;
+                background: (btnUp.has-hover && root.task.can_move_up) ? #27272a : transparent;
                 border-radius: 3px;
 
                 btnUp := TouchArea {
@@ -53,17 +53,17 @@ export component TaskCard inherits Rectangle {
 
                 Text {
                     text: "▲";
-                    font-size: 8px;
-                    color: root.task.can_move_up ? (btnUp.has-hover ? #ffffff : #888888) : #3a3a3a;
+                    font-size: 7px;
+                    color: root.task.can_move_up ? (btnUp.has-hover ? Theme.text-primary : Theme.text-muted) : #27272a;
                     horizontal-alignment: center;
                     vertical-alignment: center;
                 }
             }
 
             Rectangle {
-                width: 16px;
-                height: 14px;
-                background: (btnDown.has-hover && root.task.can_move_down) ? #3a3a3a : transparent;
+                width: 14px;
+                height: 12px;
+                background: (btnDown.has-hover && root.task.can_move_down) ? #27272a : transparent;
                 border-radius: 3px;
 
                 btnDown := TouchArea {
@@ -74,28 +74,28 @@ export component TaskCard inherits Rectangle {
 
                 Text {
                     text: "▼";
-                    font-size: 8px;
-                    color: root.task.can_move_down ? (btnDown.has-hover ? #ffffff : #888888) : #3a3a3a;
+                    font-size: 7px;
+                    color: root.task.can_move_down ? (btnDown.has-hover ? Theme.text-primary : Theme.text-muted) : #27272a;
                     horizontal-alignment: center;
                     vertical-alignment: center;
                 }
             }
         }
 
-        // 2. Status Dot (strictly centered)
+        // 2. Status Dot
         VerticalLayout {
             alignment: center;
-            width: 12px;
+            width: 10px;
 
             Rectangle {
-                width: 10px;
-                height: 10px;
-                border-radius: 5px;
+                width: 8px;
+                height: 8px;
+                border-radius: 4px;
                 background: root.task.is_running ? Theme.running : Theme.stopped;
             }
         }
 
-        // 3. Task Name & Subtitle (strictly centered vertically)
+        // 3. Task Name & Command Subtitle (2-row stack)
         VerticalLayout {
             alignment: center;
             spacing: 2px;
@@ -109,30 +109,31 @@ export component TaskCard inherits Rectangle {
                 overflow: elide;
             }
 
-            if root.task.working_directory != "" && root.task.working_directory != "." : Text {
-                text: root.task.working_directory;
-                font-size: 11px;
+            Text {
+                text: root.task.command != "" ? "$ " + root.task.command : (root.task.working_directory != "" && root.task.working_directory != "." ? root.task.working_directory : "default");
+                font-size: 10px;
+                font-family: "DejaVu Sans Mono, monospace";
                 color: Theme.text-muted;
                 overflow: elide;
             }
         }
 
-        // 4. Action Buttons (strictly centered)
+        // 4. Action Buttons
         VerticalLayout {
             alignment: center;
 
             HorizontalLayout {
-                spacing: 6px;
+                spacing: 5px;
                 alignment: center;
 
                 // Start/Stop Toggle
                 Rectangle {
-                    width: 32px;
-                    height: 28px;
+                    width: 28px;
+                    height: 26px;
                     background: root.task.is_running ?
-                        (btnToggle.pressed ? #2d1616 : (btnToggle.has-hover ? #3d1c1c : #301717)) :
-                        (btnToggle.pressed ? #122919 : (btnToggle.has-hover ? #1a3d25 : #15301e));
-                    border-color: root.task.is_running ? Theme.stopped-border : Theme.running-border;
+                        (btnToggle.pressed ? #271414 : (btnToggle.has-hover ? #381a1a : #1f1212)) :
+                        (btnToggle.pressed ? #0e2417 : (btnToggle.has-hover ? #153622 : #0f2418));
+                    border-color: root.task.is_running ? #7f1d1d : #065f46;
                     border-width: 1px;
                     border-radius: 5px;
 
@@ -143,8 +144,8 @@ export component TaskCard inherits Rectangle {
 
                     Text {
                         text: root.task.is_running ? "⏹" : "▶";
-                        font-size: 11px;
-                        color: root.task.is_running ? #ff6b6b : Theme.running;
+                        font-size: 10px;
+                        color: root.task.is_running ? #f87171 : Theme.running;
                         horizontal-alignment: center;
                         vertical-alignment: center;
                     }
@@ -152,10 +153,10 @@ export component TaskCard inherits Rectangle {
 
                 // Logs
                 Rectangle {
-                    width: 44px;
-                    height: 28px;
-                    background: btnLogs.pressed ? #1e1e1e : (btnLogs.has-hover ? #383838 : #2c2c2c);
-                    border-color: btnLogs.has-hover ? #555555 : #3d3d3d;
+                    width: 38px;
+                    height: 26px;
+                    background: btnLogs.pressed ? #18181b : (btnLogs.has-hover ? #27272a : transparent);
+                    border-color: btnLogs.has-hover ? #3f3f46 : #27272a;
                     border-width: 1px;
                     border-radius: 5px;
 
@@ -168,7 +169,7 @@ export component TaskCard inherits Rectangle {
                         text: "Logs";
                         font-size: 11px;
                         font-weight: 500;
-                        color: Theme.text-secondary;
+                        color: btnLogs.has-hover ? Theme.text-primary : Theme.text-secondary;
                         horizontal-alignment: center;
                         vertical-alignment: center;
                     }
@@ -176,10 +177,10 @@ export component TaskCard inherits Rectangle {
 
                 // Edit
                 Rectangle {
-                    width: 40px;
-                    height: 28px;
-                    background: btnEdit.pressed ? #1e1e1e : (btnEdit.has-hover ? #383838 : #2c2c2c);
-                    border-color: btnEdit.has-hover ? #555555 : #3d3d3d;
+                    width: 36px;
+                    height: 26px;
+                    background: btnEdit.pressed ? #18181b : (btnEdit.has-hover ? #27272a : transparent);
+                    border-color: btnEdit.has-hover ? #3f3f46 : #27272a;
                     border-width: 1px;
                     border-radius: 5px;
 
@@ -192,7 +193,7 @@ export component TaskCard inherits Rectangle {
                         text: "Edit";
                         font-size: 11px;
                         font-weight: 500;
-                        color: Theme.text-secondary;
+                        color: btnEdit.has-hover ? Theme.text-primary : Theme.text-secondary;
                         horizontal-alignment: center;
                         vertical-alignment: center;
                     }
@@ -200,10 +201,10 @@ export component TaskCard inherits Rectangle {
 
                 // Delete
                 Rectangle {
-                    width: 48px;
-                    height: 28px;
-                    background: btnDelete.pressed ? #3d1a1a : (btnDelete.has-hover ? #4d2020 : #2c2c2c);
-                    border-color: btnDelete.has-hover ? #883333 : #3d3d3d;
+                    width: 34px;
+                    height: 26px;
+                    background: btnDelete.pressed ? #3b1111 : (btnDelete.has-hover ? #2b1212 : transparent);
+                    border-color: btnDelete.has-hover ? #7f1d1d : #27272a;
                     border-width: 1px;
                     border-radius: 5px;
 
@@ -213,10 +214,10 @@ export component TaskCard inherits Rectangle {
                     }
 
                     Text {
-                        text: "Delete";
+                        text: "Del";
                         font-size: 11px;
                         font-weight: 500;
-                        color: btnDelete.has-hover ? #ff7777 : Theme.text-secondary;
+                        color: btnDelete.has-hover ? #f87171 : Theme.text-secondary;
                         horizontal-alignment: center;
                         vertical-alignment: center;
                     }
