@@ -84,19 +84,27 @@ export component LogViewer inherits Rectangle {
                 clip: true;
 
                 ScrollView {
-                    x: 8px;
-                    y: 8px;
-                    width: parent.width - 16px;
-                    height: parent.height - 16px;
+                    x: 6px;
+                    y: 6px;
+                    width: parent.width - 12px;
+                    height: parent.height - 12px;
+                    viewport-height: log_layout.preferred-height;
 
-                    TextInput {
-                        read-only: true;
-                        single-line: false;
-                        text: root.log_text;
-                        color: Theme.terminal-text;
-                        font-family: "DejaVu Sans Mono, monospace";
-                        font-size: 11px;
-                        wrap: word-wrap;
+                    log_layout := VerticalLayout {
+                        alignment: start;
+                        padding: 4px;
+
+                        TextInput {
+                            read-only: true;
+                            single-line: false;
+                            text: root.log_text;
+                            color: Theme.terminal-text;
+                            font-family: "DejaVu Sans Mono, monospace";
+                            font-size: 11px;
+                            wrap: word-wrap;
+                            selection-background-color: #27272a;
+                            selection-foreground-color: #ffffff;
+                        }
                     }
                 }
 
