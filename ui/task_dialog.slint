@@ -35,15 +35,15 @@ export component TaskDialog inherits Rectangle {
 
             dialog_box := Rectangle {
                 width: min(root.width - 32px, 380px);
-                background: #242424;
-                border-color: #383838;
+                background: Theme.card-bg;
+                border-color: Theme.border;
                 border-width: 1px;
-                border-radius: 10px;
+                border-radius: 8px;
                 clip: true;
 
                 VerticalLayout {
-                    padding: 18px;
-                    spacing: 14px;
+                    padding: 16px;
+                    spacing: 12px;
 
                     // Header Row
                     HorizontalLayout {
@@ -53,16 +53,16 @@ export component TaskDialog inherits Rectangle {
                         Text {
                             text: root.is_edit ? "Edit Task" : "Add Task";
                             color: Theme.text-primary;
-                            font-size: 15px;
+                            font-size: 14px;
                             font-weight: 700;
                             vertical-alignment: center;
                         }
 
                         Rectangle {
-                            width: 24px;
-                            height: 24px;
-                            border-radius: 12px;
-                            background: closeBtnTouch.has-hover ? #383838 : transparent;
+                            width: 22px;
+                            height: 22px;
+                            border-radius: 11px;
+                            background: closeBtnTouch.has-hover ? #27272a : transparent;
 
                             closeBtnTouch := TouchArea {
                                 mouse-cursor: pointer;
@@ -75,7 +75,7 @@ export component TaskDialog inherits Rectangle {
 
                             Text {
                                 text: "✕";
-                                color: #999999;
+                                color: Theme.text-muted;
                                 font-size: 11px;
                                 horizontal-alignment: center;
                                 vertical-alignment: center;
@@ -88,14 +88,14 @@ export component TaskDialog inherits Rectangle {
                         spacing: 4px;
 
                         Text {
-                            text: "Name:";
+                            text: "Name";
                             color: Theme.text-secondary;
-                            font-size: 12px;
+                            font-size: 11px;
                             font-weight: 600;
                         }
 
                         nameInput := LineEdit {
-                            height: 34px;
+                            height: 32px;
                             text <=> root.name_text;
                             placeholder-text: "e.g. Frontend Server";
                             edited => {
@@ -111,14 +111,14 @@ export component TaskDialog inherits Rectangle {
                         spacing: 4px;
 
                         Text {
-                            text: "Command:";
+                            text: "Command";
                             color: Theme.text-secondary;
-                            font-size: 12px;
+                            font-size: 11px;
                             font-weight: 600;
                         }
 
                         cmdInput := LineEdit {
-                            height: 34px;
+                            height: 32px;
                             text <=> root.command_text;
                             placeholder-text: "e.g. npm run dev";
                             edited => {
@@ -134,14 +134,14 @@ export component TaskDialog inherits Rectangle {
                         spacing: 4px;
 
                         Text {
-                            text: "Working Directory:";
+                            text: "Working Directory";
                             color: Theme.text-secondary;
-                            font-size: 12px;
+                            font-size: 11px;
                             font-weight: 600;
                         }
 
                         dirInput := LineEdit {
-                            height: 34px;
+                            height: 32px;
                             text <=> root.working_dir_text;
                             placeholder-text: ".";
                         }
@@ -152,14 +152,14 @@ export component TaskDialog inherits Rectangle {
                         spacing: 4px;
 
                         Text {
-                            text: "Group (Optional):";
+                            text: "Group (Optional)";
                             color: Theme.text-secondary;
-                            font-size: 12px;
+                            font-size: 11px;
                             font-weight: 600;
                         }
 
                         groupInput := LineEdit {
-                            height: 34px;
+                            height: 32px;
                             text <=> root.group_text;
                             placeholder-text: "e.g. Web";
                         }
@@ -168,24 +168,24 @@ export component TaskDialog inherits Rectangle {
                     // Error Message
                     if root.error_message != "" : Text {
                         text: root.error_message;
-                        color: #ff6b6b;
+                        color: #f87171;
                         font-size: 11px;
                     }
 
                     // Action Buttons
                     HorizontalLayout {
-                        height: 32px;
+                        height: 30px;
                         spacing: 8px;
                         alignment: end;
 
                         // Cancel Button
                         Rectangle {
-                            width: 76px;
-                            height: 32px;
-                            background: cancelBtnTouch.pressed ? #1a1a1a : (cancelBtnTouch.has-hover ? #383838 : #2c2c2c);
-                            border-color: #444444;
+                            width: 72px;
+                            height: 30px;
+                            background: cancelBtnTouch.pressed ? #18181b : (cancelBtnTouch.has-hover ? #27272a : transparent);
+                            border-color: #27272a;
                             border-width: 1px;
-                            border-radius: 5px;
+                            border-radius: 6px;
 
                             cancelBtnTouch := TouchArea {
                                 mouse-cursor: pointer;
@@ -199,7 +199,7 @@ export component TaskDialog inherits Rectangle {
                             Text {
                                 text: "Cancel";
                                 color: Theme.text-secondary;
-                                font-size: 12px;
+                                font-size: 11px;
                                 font-weight: 500;
                                 horizontal-alignment: center;
                                 vertical-alignment: center;
@@ -208,10 +208,10 @@ export component TaskDialog inherits Rectangle {
 
                         // Save Button
                         Rectangle {
-                            width: 80px;
-                            height: 32px;
+                            width: 76px;
+                            height: 30px;
                             background: saveBtnTouch.pressed ? Theme.accent-pressed : (saveBtnTouch.has-hover ? Theme.accent-hover : Theme.accent);
-                            border-radius: 5px;
+                            border-radius: 6px;
 
                             saveBtnTouch := TouchArea {
                                 mouse-cursor: pointer;
@@ -237,7 +237,7 @@ export component TaskDialog inherits Rectangle {
                             Text {
                                 text: "Save";
                                 color: #ffffff;
-                                font-size: 12px;
+                                font-size: 11px;
                                 font-weight: 700;
                                 horizontal-alignment: center;
                                 vertical-alignment: center;

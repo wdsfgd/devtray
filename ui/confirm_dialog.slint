@@ -33,15 +33,15 @@ export component ConfirmDialog inherits Rectangle {
 
             dialog_box := Rectangle {
                 width: min(root.width - 32px, 360px);
-                background: #242424;
-                border-color: #383838;
+                background: Theme.card-bg;
+                border-color: Theme.border;
                 border-width: 1px;
-                border-radius: 10px;
+                border-radius: 8px;
                 clip: true;
 
                 VerticalLayout {
-                    padding: 18px;
-                    spacing: 14px;
+                    padding: 16px;
+                    spacing: 12px;
 
                     // Header
                     HorizontalLayout {
@@ -51,16 +51,16 @@ export component ConfirmDialog inherits Rectangle {
                         Text {
                             text: root.title;
                             color: Theme.text-primary;
-                            font-size: 15px;
+                            font-size: 14px;
                             font-weight: 700;
                             vertical-alignment: center;
                         }
 
                         Rectangle {
-                            width: 24px;
-                            height: 24px;
-                            border-radius: 12px;
-                            background: closeBtnTouch.has-hover ? #383838 : transparent;
+                            width: 22px;
+                            height: 22px;
+                            border-radius: 11px;
+                            background: closeBtnTouch.has-hover ? #27272a : transparent;
 
                             closeBtnTouch := TouchArea {
                                 mouse-cursor: pointer;
@@ -72,7 +72,7 @@ export component ConfirmDialog inherits Rectangle {
 
                             Text {
                                 text: "✕";
-                                color: #999999;
+                                color: Theme.text-muted;
                                 font-size: 11px;
                                 horizontal-alignment: center;
                                 vertical-alignment: center;
@@ -88,32 +88,32 @@ export component ConfirmDialog inherits Rectangle {
                             text: root.message;
                             color: Theme.text-primary;
                             font-size: 13px;
-                            font-weight: 700;
+                            font-weight: 600;
                             wrap: word-wrap;
                         }
 
                         if root.sub_message != "" : Text {
                             text: root.sub_message;
                             color: Theme.text-muted;
-                            font-size: 12px;
+                            font-size: 11px;
                             wrap: word-wrap;
                         }
                     }
 
                     // Buttons
                     HorizontalLayout {
-                        height: 32px;
+                        height: 30px;
                         spacing: 8px;
                         alignment: end;
 
                         // Cancel Button
                         Rectangle {
-                            width: 72px;
-                            height: 32px;
-                            background: cancelBtnTouch.pressed ? #1a1a1a : (cancelBtnTouch.has-hover ? #383838 : #2c2c2c);
-                            border-color: #444444;
+                            width: 68px;
+                            height: 30px;
+                            background: cancelBtnTouch.pressed ? #18181b : (cancelBtnTouch.has-hover ? #27272a : transparent);
+                            border-color: #27272a;
                             border-width: 1px;
-                            border-radius: 5px;
+                            border-radius: 6px;
 
                             cancelBtnTouch := TouchArea {
                                 mouse-cursor: pointer;
@@ -126,7 +126,7 @@ export component ConfirmDialog inherits Rectangle {
                             Text {
                                 text: "Cancel";
                                 color: Theme.text-secondary;
-                                font-size: 12px;
+                                font-size: 11px;
                                 font-weight: 500;
                                 horizontal-alignment: center;
                                 vertical-alignment: center;
@@ -135,12 +135,12 @@ export component ConfirmDialog inherits Rectangle {
 
                         // Confirm Button
                         Rectangle {
-                            width: 80px;
-                            height: 32px;
+                            width: 76px;
+                            height: 30px;
                             background: root.is_destructive ?
                                 (confirmBtnTouch.pressed ? Theme.danger-pressed : (confirmBtnTouch.has-hover ? Theme.danger-hover : Theme.danger)) :
                                 (confirmBtnTouch.pressed ? Theme.accent-pressed : (confirmBtnTouch.has-hover ? Theme.accent-hover : Theme.accent));
-                            border-radius: 5px;
+                            border-radius: 6px;
 
                             confirmBtnTouch := TouchArea {
                                 mouse-cursor: pointer;
@@ -153,7 +153,7 @@ export component ConfirmDialog inherits Rectangle {
                             Text {
                                 text: root.confirm_text;
                                 color: #ffffff;
-                                font-size: 12px;
+                                font-size: 11px;
                                 font-weight: 700;
                                 horizontal-alignment: center;
                                 vertical-alignment: center;
