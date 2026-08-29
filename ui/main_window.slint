@@ -57,34 +57,34 @@ export component MainWindow inherits Window {
 
     // Main layout
     VerticalLayout {
-        padding: 14px;
-        spacing: 12px;
+        padding: 12px;
+        spacing: 10px;
 
         // Top Header
         HorizontalLayout {
-            height: 32px;
+            height: 28px;
             alignment: space-between;
 
             // App Title & Status Badge
             HorizontalLayout {
-                spacing: 10px;
+                spacing: 8px;
                 alignment: start;
 
                 Text {
                     text: "DevTray";
-                    font-size: 18px;
+                    font-size: 16px;
                     font-weight: 800;
                     color: Theme.text-primary;
                     vertical-alignment: center;
                 }
 
                 if root.running_count > 0 : Rectangle {
-                    height: 22px;
+                    height: 20px;
                     background: Theme.running-bg;
                     border-color: Theme.running-border;
                     border-width: 1px;
-                    border-radius: 11px;
-                    y: 5px;
+                    border-radius: 10px;
+                    y: 4px;
 
                     HorizontalLayout {
                         padding-left: 8px;
@@ -97,12 +97,12 @@ export component MainWindow inherits Window {
                             height: 6px;
                             border-radius: 3px;
                             background: Theme.running;
-                            y: 8px;
+                            y: 7px;
                         }
 
                         Text {
                             text: root.running_count + " active";
-                            font-size: 11px;
+                            font-size: 10px;
                             font-weight: 700;
                             color: Theme.running;
                             vertical-alignment: center;
@@ -113,10 +113,10 @@ export component MainWindow inherits Window {
 
             // + Add Task Button
             Rectangle {
-                width: 96px;
-                height: 30px;
+                width: 90px;
+                height: 28px;
                 background: btnAddTouch.pressed ? Theme.accent-pressed : (btnAddTouch.has-hover ? Theme.accent-hover : Theme.accent);
-                border-radius: 5px;
+                border-radius: 6px;
 
                 btnAddTouch := TouchArea {
                     mouse-cursor: pointer;
@@ -135,7 +135,7 @@ export component MainWindow inherits Window {
                 Text {
                     text: "+ Add Task";
                     color: #ffffff;
-                    font-size: 12px;
+                    font-size: 11px;
                     font-weight: 700;
                     horizontal-alignment: center;
                     vertical-alignment: center;
@@ -151,20 +151,20 @@ export component MainWindow inherits Window {
             // Empty State
             if root.tasks.length == 0 : VerticalLayout {
                 alignment: center;
-                spacing: 8px;
+                spacing: 6px;
 
                 Text {
                     text: "No tasks configured";
-                    color: Theme.text-muted;
-                    font-size: 14px;
-                    font-weight: 700;
+                    color: Theme.text-secondary;
+                    font-size: 13px;
+                    font-weight: 600;
                     horizontal-alignment: center;
                 }
 
                 Text {
-                    text: "Click '+ Add Task' above to add your background services.";
-                    color: #666666;
-                    font-size: 12px;
+                    text: "Click '+ Add Task' above to start managing background services.";
+                    color: Theme.text-muted;
+                    font-size: 11px;
                     horizontal-alignment: center;
                 }
             }
@@ -173,14 +173,14 @@ export component MainWindow inherits Window {
             if root.tasks.length > 0 : ScrollView {
                 VerticalLayout {
                     spacing: 6px;
-                    padding-right: 6px;
+                    padding-right: 4px;
 
                     for task[idx] in root.tasks : VerticalLayout {
                         spacing: 6px;
 
                         // Section Header
                         if idx == 0 || root.tasks[idx - 1].group != task.group : Rectangle {
-                            height: 28px;
+                            height: 24px;
                             background: transparent;
 
                             HorizontalLayout {
@@ -188,10 +188,11 @@ export component MainWindow inherits Window {
                                 spacing: 8px;
 
                                 Text {
-                                    text: task.group != "" ? task.group : "Uncategorized";
-                                    color: #9e9e9e;
-                                    font-size: 11px;
+                                    text: task.group != "" ? task.group : "UNCATEGORIZED";
+                                    color: Theme.text-muted;
+                                    font-size: 10px;
                                     font-weight: 700;
+                                    letter-spacing: 0.5px;
                                     vertical-alignment: bottom;
                                 }
                             }
@@ -243,24 +244,24 @@ export component MainWindow inherits Window {
 
         // Bottom Action Bar
         Rectangle {
-            height: 44px;
+            height: 42px;
             background: Theme.surface;
             border-color: Theme.border;
             border-width: 1px;
             border-radius: 6px;
 
             HorizontalLayout {
-                padding-left: 12px;
-                padding-right: 12px;
-                spacing: 10px;
+                padding-left: 10px;
+                padding-right: 10px;
+                spacing: 8px;
                 alignment: center;
 
                 // Start All Button
                 Rectangle {
-                    width: 90px;
+                    width: 86px;
                     height: 28px;
-                    background: btnStartAll.pressed ? #122919 : (btnStartAll.has-hover ? #1a3d25 : #163320);
-                    border-color: Theme.running-border;
+                    background: btnStartAll.pressed ? #0e2417 : (btnStartAll.has-hover ? #153622 : #0f2418);
+                    border-color: #065f46;
                     border-width: 1px;
                     border-radius: 5px;
 
@@ -273,7 +274,7 @@ export component MainWindow inherits Window {
                         text: "▶ Start All";
                         color: Theme.running;
                         font-size: 11px;
-                        font-weight: 700;
+                        font-weight: 600;
                         horizontal-alignment: center;
                         vertical-alignment: center;
                     }
@@ -281,10 +282,10 @@ export component MainWindow inherits Window {
 
                 // Stop All Button
                 Rectangle {
-                    width: 90px;
+                    width: 86px;
                     height: 28px;
-                    background: btnStopAll.pressed ? #2d1616 : (btnStopAll.has-hover ? #401f1f : #331919);
-                    border-color: Theme.stopped-border;
+                    background: btnStopAll.pressed ? #271414 : (btnStopAll.has-hover ? #381a1a : #1f1212);
+                    border-color: #7f1d1d;
                     border-width: 1px;
                     border-radius: 5px;
 
@@ -295,9 +296,9 @@ export component MainWindow inherits Window {
 
                     Text {
                         text: "⏹ Stop All";
-                        color: #ff6b6b;
+                        color: #f87171;
                         font-size: 11px;
-                        font-weight: 700;
+                        font-weight: 600;
                         horizontal-alignment: center;
                         vertical-alignment: center;
                     }
@@ -309,10 +310,10 @@ export component MainWindow inherits Window {
 
                 // Quit Button
                 Rectangle {
-                    width: 56px;
+                    width: 52px;
                     height: 28px;
-                    background: btnQuit.pressed ? #1a1a1a : (btnQuit.has-hover ? #383838 : #2b2b2b);
-                    border-color: #424242;
+                    background: btnQuit.pressed ? #18181b : (btnQuit.has-hover ? #27272a : transparent);
+                    border-color: btnQuit.has-hover ? #3f3f46 : #27272a;
                     border-width: 1px;
                     border-radius: 5px;
 
