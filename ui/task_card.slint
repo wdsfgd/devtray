@@ -20,11 +20,15 @@ export component TaskCard inherits Rectangle {
     callback move_up();
     callback move_down();
 
-    height: 56px;
-    background: cardTouch.has-hover ? Theme.card-hover : Theme.card-bg;
-    border-color: cardTouch.has-hover ? Theme.border-light : Theme.border;
+    property <bool> is_hovered: cardTouch.has-hover || btnToggle.has-hover || btnLogs.has-hover || btnEdit.has-hover || btnDelete.has-hover || btnUp.has-hover || btnDown.has-hover;
+
+    height: 54px;
+    background: root.is_hovered ? Theme.card-hover : Theme.card-bg;
+    border-color: root.is_hovered ? Theme.border-light : Theme.border;
     border-width: 1px;
-    border-radius: 8px;
+    border-radius: 6px;
+    animate background { duration: 120ms; }
+    animate border-color { duration: 120ms; }
 
     cardTouch := TouchArea {}
 
@@ -42,7 +46,7 @@ export component TaskCard inherits Rectangle {
             Rectangle {
                 width: 14px;
                 height: 12px;
-                background: (btnUp.has-hover && root.task.can_move_up) ? #27272a : transparent;
+                background: (btnUp.has-hover && root.task.can_move_up) ? #20252e : transparent;
                 border-radius: 3px;
 
                 btnUp := TouchArea {
@@ -54,7 +58,7 @@ export component TaskCard inherits Rectangle {
                 Text {
                     text: "▲";
                     font-size: 7px;
-                    color: root.task.can_move_up ? (btnUp.has-hover ? Theme.text-primary : Theme.text-muted) : #27272a;
+                    color: !root.task.can_move_up ? #1e232d : (btnUp.has-hover ? #f8fafc : (root.is_hovered ? #94a3b8 : #334155));
                     horizontal-alignment: center;
                     vertical-alignment: center;
                 }
@@ -63,7 +67,7 @@ export component TaskCard inherits Rectangle {
             Rectangle {
                 width: 14px;
                 height: 12px;
-                background: (btnDown.has-hover && root.task.can_move_down) ? #27272a : transparent;
+                background: (btnDown.has-hover && root.task.can_move_down) ? #20252e : transparent;
                 border-radius: 3px;
 
                 btnDown := TouchArea {
@@ -75,7 +79,7 @@ export component TaskCard inherits Rectangle {
                 Text {
                     text: "▼";
                     font-size: 7px;
-                    color: root.task.can_move_down ? (btnDown.has-hover ? Theme.text-primary : Theme.text-muted) : #27272a;
+                    color: !root.task.can_move_down ? #1e232d : (btnDown.has-hover ? #f8fafc : (root.is_hovered ? #94a3b8 : #334155));
                     horizontal-alignment: center;
                     vertical-alignment: center;
                 }
@@ -85,13 +89,13 @@ export component TaskCard inherits Rectangle {
         // 2. Status Dot
         VerticalLayout {
             alignment: center;
-            width: 10px;
+            width: 7px;
 
             Rectangle {
-                width: 8px;
-                height: 8px;
-                border-radius: 4px;
-                background: root.task.is_running ? Theme.running : Theme.stopped;
+                width: 7px;
+                height: 7px;
+                border-radius: 3.5px;
+                background: root.task.is_running ? #10b981 : #475569;
             }
         }
 
@@ -104,122 +108,150 @@ export component TaskCard inherits Rectangle {
             Text {
                 text: root.task.name;
                 font-size: 13px;
-                font-weight: 700;
+                font-weight: 600;
                 color: Theme.text-primary;
                 overflow: elide;
             }
 
             Text {
                 text: root.task.command != "" ? "$ " + root.task.command : (root.task.working_directory != "" && root.task.working_directory != "." ? root.task.working_directory : "default");
-                font-size: 10px;
+                font-size: 10.5px;
                 font-family: "DejaVu Sans Mono, monospace";
                 color: Theme.text-muted;
                 overflow: elide;
             }
         }
 
-        // 4. Action Buttons
+        // 4. Action Toolbar (Revealed on hover) / Resting Status Tag
         VerticalLayout {
             alignment: center;
 
-            HorizontalLayout {
-                spacing: 5px;
-                alignment: center;
+            Rectangle {
+                width: 116px;
+                height: 24px;
 
-                // Start/Stop Toggle
-                Rectangle {
-                    width: 28px;
-                    height: 26px;
-                    background: root.task.is_running ?
-                        (btnToggle.pressed ? #271414 : (btnToggle.has-hover ? #381a1a : #1f1212)) :
-                        (btnToggle.pressed ? #0e2417 : (btnToggle.has-hover ? #153622 : #0f2418));
-                    border-color: root.task.is_running ? #7f1d1d : #065f46;
-                    border-width: 1px;
-                    border-radius: 5px;
+                // Resting state: subtle status indicator
+                HorizontalLayout {
+                    alignment: end;
+                    opacity: root.is_hovered ? 0.0 : 1.0;
+                    animate opacity { duration: 150ms; }
 
-                    btnToggle := TouchArea {
-                        mouse-cursor: pointer;
-                        clicked => { root.toggle_task(); }
-                    }
+                    VerticalLayout {
+                        alignment: center;
+                        padding-right: 4px;
 
-                    Text {
-                        text: root.task.is_running ? "⏹" : "▶";
-                        font-size: 10px;
-                        color: root.task.is_running ? #f87171 : Theme.running;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
+                        Text {
+                            text: root.task.is_running ? "Running" : "Stopped";
+                            font-size: 11px;
+                            font-weight: 500;
+                            color: root.task.is_running ? #34d399 : #64748b;
+                        }
                     }
                 }
 
-                // Logs
-                Rectangle {
-                    width: 38px;
-                    height: 26px;
-                    background: btnLogs.pressed ? #18181b : (btnLogs.has-hover ? #27272a : transparent);
-                    border-color: btnLogs.has-hover ? #3f3f46 : #27272a;
-                    border-width: 1px;
-                    border-radius: 5px;
+                // Hover state: 4 compact ghost icon buttons
+                HorizontalLayout {
+                    spacing: 4px;
+                    alignment: end;
+                    opacity: root.is_hovered ? 1.0 : 0.0;
+                    animate opacity { duration: 150ms; }
 
-                    btnLogs := TouchArea {
-                        mouse-cursor: pointer;
-                        clicked => { root.show_logs(); }
+                    // Toggle Button
+                    Rectangle {
+                        width: 26px;
+                        height: 24px;
+                        background: root.task.is_running ?
+                            (btnToggle.pressed ? #311316 : (btnToggle.has-hover ? #ef444418 : transparent)) :
+                            (btnToggle.pressed ? #0e2417 : (btnToggle.has-hover ? #10b98118 : transparent));
+                        border-color: root.task.is_running ?
+                            (btnToggle.has-hover ? #631b21 : transparent) :
+                            (btnToggle.has-hover ? #10b98133 : transparent);
+                        border-width: 1px;
+                        border-radius: 5px;
+
+                        btnToggle := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.toggle_task(); }
+                        }
+
+                        Text {
+                            text: root.task.is_running ? "⏹" : "▶";
+                            font-size: 10px;
+                            color: root.task.is_running ? #f87171 : #34d399;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
                     }
 
-                    Text {
-                        text: "Logs";
-                        font-size: 11px;
-                        font-weight: 500;
-                        color: btnLogs.has-hover ? Theme.text-primary : Theme.text-secondary;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
-                }
+                    // Logs Button
+                    Rectangle {
+                        width: 26px;
+                        height: 24px;
+                        background: btnLogs.pressed ? #1c212b : (btnLogs.has-hover ? #262d3a : transparent);
+                        border-color: btnLogs.has-hover ? #30394a : transparent;
+                        border-width: 1px;
+                        border-radius: 5px;
 
-                // Edit
-                Rectangle {
-                    width: 36px;
-                    height: 26px;
-                    background: btnEdit.pressed ? #18181b : (btnEdit.has-hover ? #27272a : transparent);
-                    border-color: btnEdit.has-hover ? #3f3f46 : #27272a;
-                    border-width: 1px;
-                    border-radius: 5px;
+                        btnLogs := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.show_logs(); }
+                        }
 
-                    btnEdit := TouchArea {
-                        mouse-cursor: pointer;
-                        clicked => { root.edit_task(); }
-                    }
-
-                    Text {
-                        text: "Edit";
-                        font-size: 11px;
-                        font-weight: 500;
-                        color: btnEdit.has-hover ? Theme.text-primary : Theme.text-secondary;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
-                }
-
-                // Delete
-                Rectangle {
-                    width: 34px;
-                    height: 26px;
-                    background: btnDelete.pressed ? #3b1111 : (btnDelete.has-hover ? #2b1212 : transparent);
-                    border-color: btnDelete.has-hover ? #7f1d1d : #27272a;
-                    border-width: 1px;
-                    border-radius: 5px;
-
-                    btnDelete := TouchArea {
-                        mouse-cursor: pointer;
-                        clicked => { root.delete_task(); }
+                        Text {
+                            text: ">_";
+                            font-size: 9.5px;
+                            font-family: "DejaVu Sans Mono, monospace";
+                            font-weight: 700;
+                            color: btnLogs.has-hover ? #f8fafc : #94a3b8;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
                     }
 
-                    Text {
-                        text: "Del";
-                        font-size: 11px;
-                        font-weight: 500;
-                        color: btnDelete.has-hover ? #f87171 : Theme.text-secondary;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
+                    // Edit Button
+                    Rectangle {
+                        width: 26px;
+                        height: 24px;
+                        background: btnEdit.pressed ? #1c212b : (btnEdit.has-hover ? #262d3a : transparent);
+                        border-color: btnEdit.has-hover ? #30394a : transparent;
+                        border-width: 1px;
+                        border-radius: 5px;
+
+                        btnEdit := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.edit_task(); }
+                        }
+
+                        Text {
+                            text: "✎";
+                            font-size: 12px;
+                            color: btnEdit.has-hover ? #f8fafc : #94a3b8;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    // Delete Button
+                    Rectangle {
+                        width: 26px;
+                        height: 24px;
+                        background: btnDelete.pressed ? #311316 : (btnDelete.has-hover ? #ef444418 : transparent);
+                        border-color: btnDelete.has-hover ? #631b21 : transparent;
+                        border-width: 1px;
+                        border-radius: 5px;
+
+                        btnDelete := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.delete_task(); }
+                        }
+
+                        Text {
+                            text: "✕";
+                            font-size: 11px;
+                            color: btnDelete.has-hover ? #f87171 : #94a3b8;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
                     }
                 }
             }
