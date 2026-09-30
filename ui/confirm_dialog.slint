@@ -36,7 +36,7 @@ export component ConfirmDialog inherits Rectangle {
                 background: Theme.card-bg;
                 border-color: Theme.border;
                 border-width: 1px;
-                border-radius: 8px;
+                border-radius: 10px;
                 clip: true;
 
                 VerticalLayout {
@@ -60,7 +60,7 @@ export component ConfirmDialog inherits Rectangle {
                             width: 22px;
                             height: 22px;
                             border-radius: 11px;
-                            background: closeBtnTouch.has-hover ? #27272a : transparent;
+                            background: closeBtnTouch.has-hover ? #1c212b : transparent;
 
                             closeBtnTouch := TouchArea {
                                 mouse-cursor: pointer;
@@ -72,7 +72,7 @@ export component ConfirmDialog inherits Rectangle {
 
                             Text {
                                 text: "✕";
-                                color: Theme.text-muted;
+                                color: closeBtnTouch.has-hover ? Theme.text-primary : Theme.text-muted;
                                 font-size: 11px;
                                 horizontal-alignment: center;
                                 vertical-alignment: center;
@@ -108,10 +108,10 @@ export component ConfirmDialog inherits Rectangle {
 
                         // Cancel Button
                         Rectangle {
-                            width: 68px;
+                            width: 72px;
                             height: 30px;
-                            background: cancelBtnTouch.pressed ? #18181b : (cancelBtnTouch.has-hover ? #27272a : transparent);
-                            border-color: #27272a;
+                            background: cancelBtnTouch.pressed ? #14171d : (cancelBtnTouch.has-hover ? #1c212b : transparent);
+                            border-color: Theme.border;
                             border-width: 1px;
                             border-radius: 6px;
 
@@ -125,7 +125,7 @@ export component ConfirmDialog inherits Rectangle {
 
                             Text {
                                 text: "Cancel";
-                                color: Theme.text-secondary;
+                                color: cancelBtnTouch.has-hover ? Theme.text-primary : Theme.text-secondary;
                                 font-size: 11px;
                                 font-weight: 500;
                                 horizontal-alignment: center;
@@ -138,8 +138,10 @@ export component ConfirmDialog inherits Rectangle {
                             width: 76px;
                             height: 30px;
                             background: root.is_destructive ?
-                                (confirmBtnTouch.pressed ? Theme.danger-pressed : (confirmBtnTouch.has-hover ? Theme.danger-hover : Theme.danger)) :
+                                (confirmBtnTouch.pressed ? #251012 : (confirmBtnTouch.has-hover ? #3f171b : Theme.danger-surface)) :
                                 (confirmBtnTouch.pressed ? Theme.accent-pressed : (confirmBtnTouch.has-hover ? Theme.accent-hover : Theme.accent));
+                            border-color: root.is_destructive ? Theme.danger-border : Theme.accent-border;
+                            border-width: 1px;
                             border-radius: 6px;
 
                             confirmBtnTouch := TouchArea {
@@ -152,9 +154,11 @@ export component ConfirmDialog inherits Rectangle {
 
                             Text {
                                 text: root.confirm_text;
-                                color: #ffffff;
+                                color: root.is_destructive ?
+                                    (confirmBtnTouch.has-hover ? #ffffff : #fca5a5) :
+                                    Theme.accent-text;
                                 font-size: 11px;
-                                font-weight: 700;
+                                font-weight: 600;
                                 horizontal-alignment: center;
                                 vertical-alignment: center;
                             }
