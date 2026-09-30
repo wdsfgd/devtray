@@ -148,8 +148,8 @@ export component LogViewer inherits Rectangle {
                 Rectangle {
                     width: 80px;
                     height: 28px;
-                    background: clearBtnTouch.pressed ? #251012 : (clearBtnTouch.has-hover ? Theme.danger-hover-bg : transparent);
-                    border-color: Theme.border;
+                    background: clearBtnTouch.pressed ? Theme.danger-surface : (clearBtnTouch.has-hover ? Theme.danger-hover-bg : transparent);
+                    border-color: clearBtnTouch.has-hover ? Theme.danger-border : Theme.border;
                     border-width: 1px;
                     border-radius: 6px;
 
