@@ -73,16 +73,16 @@ export component MainWindow inherits Window {
 
                 Text {
                     text: "DevTray";
-                    font-size: 16px;
-                    font-weight: 800;
+                    font-size: 15px;
+                    font-weight: 700;
                     color: Theme.text-primary;
                     vertical-alignment: center;
                 }
 
                 if root.running_count > 0 : Rectangle {
                     height: 20px;
-                    background: Theme.running-bg;
-                    border-color: Theme.running-border;
+                    background: #14171d;
+                    border-color: #232832;
                     border-width: 1px;
                     border-radius: 10px;
                     y: 4px;
@@ -97,26 +97,28 @@ export component MainWindow inherits Window {
                             width: 6px;
                             height: 6px;
                             border-radius: 3px;
-                            background: Theme.running;
+                            background: #10b981;
                             y: 7px;
                         }
 
                         Text {
                             text: root.running_count + " active";
-                            font-size: 10px;
-                            font-weight: 700;
-                            color: Theme.running;
+                            font-size: 11px;
+                            font-weight: 600;
+                            color: #34d399;
                             vertical-alignment: center;
                         }
                     }
                 }
             }
 
-            // + Add Task Button
+            // + New Task Button
             Rectangle {
                 width: 90px;
                 height: 28px;
                 background: btnAddTouch.pressed ? Theme.accent-pressed : (btnAddTouch.has-hover ? Theme.accent-hover : Theme.accent);
+                border-color: Theme.accent-border;
+                border-width: 1px;
                 border-radius: 6px;
 
                 btnAddTouch := TouchArea {
@@ -134,10 +136,10 @@ export component MainWindow inherits Window {
                 }
 
                 Text {
-                    text: "+ Add Task";
-                    color: #ffffff;
+                    text: "+ New Task";
+                    color: Theme.accent-text;
                     font-size: 11px;
-                    font-weight: 700;
+                    font-weight: 600;
                     horizontal-alignment: center;
                     vertical-alignment: center;
                 }
@@ -163,7 +165,7 @@ export component MainWindow inherits Window {
                 }
 
                 Text {
-                    text: "Click '+ Add Task' above to start managing background services.";
+                    text: "Click '+ New Task' above to start managing background services.";
                     color: Theme.text-muted;
                     font-size: 11px;
                     horizontal-alignment: center;
@@ -193,7 +195,7 @@ export component MainWindow inherits Window {
                                     color: Theme.text-muted;
                                     font-size: 10px;
                                     font-weight: 700;
-                                    letter-spacing: 0.5px;
+                                    letter-spacing: 0.8px;
                                     vertical-alignment: bottom;
                                 }
                             }
@@ -245,7 +247,7 @@ export component MainWindow inherits Window {
 
         // Bottom Action Bar
         Rectangle {
-            height: 42px;
+            height: 38px;
             background: Theme.surface;
             border-color: Theme.border;
             border-width: 1px;
@@ -260,9 +262,9 @@ export component MainWindow inherits Window {
                 // Start All Button
                 Rectangle {
                     width: 86px;
-                    height: 28px;
-                    background: btnStartAll.pressed ? #0e2417 : (btnStartAll.has-hover ? #153622 : #0f2418);
-                    border-color: #065f46;
+                    height: 26px;
+                    background: btnStartAll.has-hover ? Theme.running-bg : transparent;
+                    border-color: Theme.border;
                     border-width: 1px;
                     border-radius: 5px;
 
@@ -273,7 +275,7 @@ export component MainWindow inherits Window {
 
                     Text {
                         text: "▶ Start All";
-                        color: Theme.running;
+                        color: btnStartAll.has-hover ? Theme.running : Theme.text-secondary;
                         font-size: 11px;
                         font-weight: 600;
                         horizontal-alignment: center;
@@ -284,9 +286,9 @@ export component MainWindow inherits Window {
                 // Stop All Button
                 Rectangle {
                     width: 86px;
-                    height: 28px;
-                    background: btnStopAll.pressed ? #271414 : (btnStopAll.has-hover ? #381a1a : #1f1212);
-                    border-color: #7f1d1d;
+                    height: 26px;
+                    background: btnStopAll.has-hover ? Theme.danger-hover-bg : transparent;
+                    border-color: Theme.border;
                     border-width: 1px;
                     border-radius: 5px;
 
@@ -297,7 +299,7 @@ export component MainWindow inherits Window {
 
                     Text {
                         text: "⏹ Stop All";
-                        color: #f87171;
+                        color: btnStopAll.has-hover ? Theme.danger : Theme.text-secondary;
                         font-size: 11px;
                         font-weight: 600;
                         horizontal-alignment: center;
@@ -312,9 +314,9 @@ export component MainWindow inherits Window {
                 // Quit Button
                 Rectangle {
                     width: 52px;
-                    height: 28px;
-                    background: btnQuit.pressed ? #18181b : (btnQuit.has-hover ? #27272a : transparent);
-                    border-color: btnQuit.has-hover ? #3f3f46 : #27272a;
+                    height: 26px;
+                    background: btnQuit.has-hover ? Theme.card-hover : transparent;
+                    border-color: Theme.border;
                     border-width: 1px;
                     border-radius: 5px;
 
@@ -325,7 +327,7 @@ export component MainWindow inherits Window {
 
                     Text {
                         text: "Quit";
-                        color: Theme.text-secondary;
+                        color: btnQuit.has-hover ? Theme.text-secondary : Theme.text-muted;
                         font-size: 11px;
                         font-weight: 500;
                         horizontal-alignment: center;
