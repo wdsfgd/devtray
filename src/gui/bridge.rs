@@ -380,7 +380,11 @@ impl SlintAppController {
     }
 
     pub fn delete_task(&self, task_id: &str) -> Result<(), BridgeError> {
-        let _ = self.process_manager.stop(task_id);
+        if let Some(task) = self.get_task(task_id) {
+            let _ = self.process_manager.stop_with_config(&task);
+        } else {
+            let _ = self.process_manager.stop(task_id);
+        }
 
         let mut tasks = self.task_list.lock().unwrap();
         let initial_len = tasks.len();
@@ -460,7 +464,11 @@ impl SlintAppController {
     }
 
     pub fn stop_task(&self, task_id: &str) -> Result<(), BridgeError> {
-        self.process_manager.stop(task_id)?;
+        if let Some(task) = self.get_task(task_id) {
+            self.process_manager.stop_with_config(&task)?;
+        } else {
+            self.process_manager.stop(task_id)?;
+        }
         Ok(())
     }
 
@@ -481,17 +489,17 @@ impl SlintAppController {
     }
 
     pub fn stop_group(&self, group: &str) -> Result<(), BridgeError> {
-        let task_ids_to_stop = {
+        let tasks_to_stop = {
             let tasks = self.task_list.lock().unwrap();
             tasks
                 .iter()
                 .filter(|t| t.group.as_deref() == Some(group))
-                .map(|t| t.id.clone())
+                .cloned()
                 .collect::<Vec<_>>()
         };
 
-        for id in task_ids_to_stop {
-            self.process_manager.stop(&id)?;
+        for task in tasks_to_stop {
+            self.process_manager.stop_with_config(&task)?;
         }
         Ok(())
     }
@@ -504,6 +512,10 @@ impl SlintAppController {
     }
 
     pub fn stop_all(&self) {
+        let tasks = self.tasks();
+        for task in &tasks {
+            let _ = self.process_manager.stop_with_config(task);
+        }
         self.process_manager.stop_all();
     }
 
@@ -527,35 +539,33 @@ impl SlintAppController {
         let ui_weak_clone = ui_weak.clone();
         let target_name = task_name.to_string();
 
-        std::thread::spawn(move || {
-            loop {
-                crossbeam_channel::select! {
-                    recv(stop_rx) -> _ => break,
-                    recv(rx) -> msg => {
-                        match msg {
-                            Ok(line) => {
-                                let ui_weak = ui_weak_clone.clone();
-                                let line_clone = line;
-                                let expected_name = target_name.clone();
-                                slint::invoke_from_event_loop(move || {
-                                    if let Some(ui) = ui_weak.upgrade() {
-                                        if ui.get_log_viewer_open()
-                                            && ui.get_log_viewer_task_name().as_str() == expected_name
-                                        {
-                                            let current = ui.get_log_viewer_text();
-                                            let new_text = if current.is_empty() {
-                                                line_clone
-                                            } else {
-                                                format!("{}\n{}", current, line_clone)
-                                            };
-                                            ui.set_log_viewer_text(new_text.into());
-                                        }
+        std::thread::spawn(move || loop {
+            crossbeam_channel::select! {
+                recv(stop_rx) -> _ => break,
+                recv(rx) -> msg => {
+                    match msg {
+                        Ok(line) => {
+                            let ui_weak = ui_weak_clone.clone();
+                            let line_clone = line;
+                            let expected_name = target_name.clone();
+                            slint::invoke_from_event_loop(move || {
+                                if let Some(ui) = ui_weak.upgrade() {
+                                    if ui.get_log_viewer_open()
+                                        && ui.get_log_viewer_task_name().as_str() == expected_name
+                                    {
+                                        let current = ui.get_log_viewer_text();
+                                        let new_text = if current.is_empty() {
+                                            line_clone
+                                        } else {
+                                            format!("{}\n{}", current, line_clone)
+                                        };
+                                        ui.set_log_viewer_text(new_text.into());
                                     }
-                                })
-                                .ok();
-                            }
-                            Err(_) => break,
+                                }
+                            })
+                            .ok();
                         }
+                        Err(_) => break,
                     }
                 }
             }
@@ -606,7 +616,13 @@ impl SlintAppController {
                 } else {
                     Some(group.as_str())
                 };
-                let _ = c.save_task(id.as_str(), name.as_str(), cmd.as_str(), dir.as_str(), group_opt);
+                let _ = c.save_task(
+                    id.as_str(),
+                    name.as_str(),
+                    cmd.as_str(),
+                    dir.as_str(),
+                    group_opt,
+                );
                 if let Some(ui) = ui_weak.upgrade() {
                     c.refresh_tasks(&ui);
                 }

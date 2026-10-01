@@ -8,9 +8,11 @@ fn test_task_config_serialization() {
         command: "npm run dev".to_string(),
         working_directory: "~/project".to_string(),
         group: Some("Web".to_string()),
+        stop_command: None,
     };
 
     let json = serde_json::to_string(&task).expect("failed to serialize");
+    assert!(!json.contains("stop_command"));
     let deserialized: TaskConfig = serde_json::from_str(&json).expect("failed to deserialize");
     assert_eq!(task, deserialized);
 }
@@ -27,6 +29,19 @@ fn test_task_config_deserialization_defaults() {
     assert_eq!(task.command, "cargo run");
     assert_eq!(task.working_directory, ".");
     assert_eq!(task.group, None);
+}
+
+#[test]
+fn test_task_config_stop_command_serde() {
+    let json = r#"{
+        "id": "t1",
+        "name": "Warp",
+        "command": "podman compose up",
+        "working_directory": ".",
+        "stop_command": "podman compose down"
+    }"#;
+    let task: TaskConfig = serde_json::from_str(json).expect("failed to deserialize");
+    assert_eq!(task.stop_command.as_deref(), Some("podman compose down"));
 }
 
 #[test]

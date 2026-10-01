@@ -11,6 +11,8 @@ pub struct TaskConfig {
     pub working_directory: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stop_command: Option<String>,
 }
 
 fn default_id() -> String {
@@ -36,6 +38,16 @@ impl TaskConfig {
         working_directory: &str,
         group: Option<&str>,
     ) -> Result<Self, ModelError> {
+        Self::with_stop_command(name, command, working_directory, group, None)
+    }
+
+    pub fn with_stop_command(
+        name: &str,
+        command: &str,
+        working_directory: &str,
+        group: Option<&str>,
+        stop_command: Option<&str>,
+    ) -> Result<Self, ModelError> {
         let name = name.trim();
         let command = command.trim();
         if name.is_empty() {
@@ -58,6 +70,9 @@ impl TaskConfig {
             group: group
                 .map(|g| g.trim().to_string())
                 .filter(|g| !g.is_empty()),
+            stop_command: stop_command
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty()),
         })
     }
 
@@ -76,4 +91,22 @@ impl TaskConfig {
 pub enum TaskStatus {
     Stopped { exit_code: Option<i32> },
     Running { pid: u32 },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_task_config_stop_command_serde() {
+        let json = r#"{
+            "id": "t1",
+            "name": "Warp",
+            "command": "podman compose up",
+            "working_directory": ".",
+            "stop_command": "podman compose down"
+        }"#;
+        let task: TaskConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(task.stop_command.as_deref(), Some("podman compose down"));
+    }
 }

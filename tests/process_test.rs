@@ -167,3 +167,164 @@ fn test_rapid_restart_reaper_synchronization() {
     pm.stop(&task.id).expect("final stop should succeed");
 }
 
+#[test]
+fn test_stop_with_config_custom_stop_command() {
+    let dir = tempdir().unwrap();
+    let broadcaster = LogBroadcaster::new(dir.path().to_path_buf(), 100);
+    let pm = ProcessManager::new(broadcaster);
+
+    let marker_file = dir.path().join("stop_marker.txt");
+    let marker_path = marker_file.to_str().unwrap();
+
+    let mut task = TaskConfig::new("CustomStop", "sleep 10", ".", None).unwrap();
+    task.stop_command = Some(format!("touch {}", marker_path));
+
+    pm.start(&task).expect("start should succeed");
+    std::thread::sleep(Duration::from_millis(100));
+    assert!(pm.is_running(&task.id));
+
+    pm.stop_with_config(&task)
+        .expect("stop_with_config should succeed");
+    std::thread::sleep(Duration::from_millis(300));
+
+    assert!(!pm.is_running(&task.id));
+    assert!(
+        marker_file.exists(),
+        "stop_command should have executed and created marker file"
+    );
+}
+
+#[test]
+fn test_process_graceful_stop_sigint_handled() {
+    let dir = tempdir().unwrap();
+    let broadcaster = LogBroadcaster::new(dir.path().to_path_buf(), 100);
+    let pm = ProcessManager::new(broadcaster);
+
+    let cleanup_file = dir.path().join("sigint_clean.txt");
+    let cleanup_path = cleanup_file.to_str().unwrap();
+
+    let cmd = format!(
+        "trap 'touch \"{}\"; exit 0' INT; while true; do sleep 0.05; done",
+        cleanup_path
+    );
+    let task = TaskConfig::new("IntHandler", &cmd, ".", None).unwrap();
+
+    pm.start(&task).expect("start should succeed");
+    std::thread::sleep(Duration::from_millis(150));
+    assert!(pm.is_running(&task.id));
+
+    pm.stop(&task.id).expect("stop should succeed");
+
+    // Wait up to 1 second for trap to finish writing file
+    let mut cleaned_up = false;
+    for _ in 0..20 {
+        if cleanup_file.exists() {
+            cleaned_up = true;
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    assert!(cleaned_up, "SIGINT trap handler should have executed");
+    assert!(!pm.is_running(&task.id));
+}
+
+#[test]
+fn test_escalation_advances_to_sigterm() {
+    let dir = tempdir().unwrap();
+    let broadcaster = LogBroadcaster::new(dir.path().to_path_buf(), 100);
+    let pm = ProcessManager::new(broadcaster);
+
+    let term_file = dir.path().join("sigterm_clean.txt");
+    let term_path = term_file.to_str().unwrap();
+
+    let cmd = format!(
+        "trap '' INT; trap 'touch \"{}\"; exit 0' TERM; while true; do sleep 0.05; done",
+        term_path
+    );
+    let task = TaskConfig::new("TermHandler", &cmd, ".", None).unwrap();
+
+    pm.start(&task).expect("start should succeed");
+    std::thread::sleep(Duration::from_millis(150));
+    assert!(pm.is_running(&task.id));
+
+    let pid = pm.get_pid(&task.id).expect("pid should be present");
+
+    // Run escalation with 200ms SIGINT timeout and 500ms SIGTERM timeout
+    ProcessManager::run_stop_escalation(
+        pid,
+        Duration::from_millis(200),
+        Duration::from_millis(500),
+        Duration::from_millis(20),
+    );
+
+    assert!(
+        term_file.exists(),
+        "Process ignoring INT should have been terminated by SIGTERM"
+    );
+}
+
+#[test]
+fn test_escalation_advances_to_sigkill() {
+    let dir = tempdir().unwrap();
+    let broadcaster = LogBroadcaster::new(dir.path().to_path_buf(), 100);
+    let pm = ProcessManager::new(broadcaster);
+
+    let task = TaskConfig::new(
+        "Immortal",
+        "trap '' INT TERM; while true; do sleep 0.05; done",
+        ".",
+        None,
+    )
+    .unwrap();
+
+    pm.start(&task).expect("start should succeed");
+    std::thread::sleep(Duration::from_millis(150));
+    assert!(pm.is_running(&task.id));
+
+    let pid = pm.get_pid(&task.id).expect("pid should be present");
+
+    // Run escalation with short timeouts to verify SIGKILL kills it
+    ProcessManager::run_stop_escalation(
+        pid,
+        Duration::from_millis(100),
+        Duration::from_millis(100),
+        Duration::from_millis(20),
+    );
+
+    // After escalation completes, process should be terminated by SIGKILL
+    std::thread::sleep(Duration::from_millis(50));
+    assert!(
+        nix::sys::signal::kill(nix::unistd::Pid::from_raw(pid as i32), None).is_err(),
+        "Process should be killed by SIGKILL"
+    );
+}
+
+#[test]
+fn test_stop_does_not_block() {
+    let dir = tempdir().unwrap();
+    let broadcaster = LogBroadcaster::new(dir.path().to_path_buf(), 100);
+    let pm = ProcessManager::new(broadcaster);
+
+    let task = TaskConfig::new(
+        "Stubborn",
+        "trap '' INT; while true; do sleep 0.05; done",
+        ".",
+        None,
+    )
+    .unwrap();
+    pm.start(&task).expect("start should succeed");
+    std::thread::sleep(Duration::from_millis(150));
+    assert!(pm.is_running(&task.id));
+
+    let start = std::time::Instant::now();
+    pm.stop(&task.id).expect("stop should succeed");
+    let elapsed = start.elapsed();
+
+    // stop() must return almost immediately (< 50ms) without waiting for escalation timeouts
+    assert!(
+        elapsed < Duration::from_millis(50),
+        "stop() took {:?}, expected < 50ms (non-blocking)",
+        elapsed
+    );
+    assert!(!pm.is_running(&task.id));
+}

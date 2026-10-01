@@ -40,6 +40,11 @@ impl ProcessManager {
         running.contains_key(task_id)
     }
 
+    pub fn get_pid(&self, task_id: &str) -> Option<u32> {
+        let running = self.running.lock().unwrap();
+        running.get(task_id).copied()
+    }
+
     pub fn running_count(&self) -> usize {
         let running = self.running.lock().unwrap();
         running.len()
@@ -129,6 +134,34 @@ impl ProcessManager {
         Ok(())
     }
 
+    pub fn stop_with_config(&self, task: &TaskConfig) -> std::io::Result<()> {
+        let pid = {
+            let mut running = self.running.lock().unwrap();
+            match running.remove(&task.id) {
+                Some(pid) => pid,
+                None => return Ok(()),
+            }
+        };
+
+        if let Some(ref cmd) = task.stop_command {
+            let cmd_trimmed = cmd.trim();
+            if !cmd_trimmed.is_empty() {
+                let cmd_str = cmd_trimmed.to_string();
+                let cwd = ConfigManager::expand_path(&task.working_directory);
+                thread::spawn(move || {
+                    let _ = Command::new("bash")
+                        .arg("-c")
+                        .arg(&cmd_str)
+                        .current_dir(cwd)
+                        .status();
+                });
+            }
+        }
+
+        Self::escalate_stop_signals(pid);
+        Ok(())
+    }
+
     pub fn stop(&self, task_id: &str) -> std::io::Result<()> {
         let pid = {
             let mut running = self.running.lock().unwrap();
@@ -138,10 +171,68 @@ impl ProcessManager {
             }
         };
 
-        // Send SIGKILL to the entire process group (-pid)
-        let _ = kill(Pid::from_raw(-(pid as i32)), Signal::SIGKILL);
-
+        Self::escalate_stop_signals(pid);
         Ok(())
+    }
+
+    fn escalate_stop_signals(pid: u32) {
+        thread::spawn(move || {
+            Self::run_stop_escalation(
+                pid,
+                std::time::Duration::from_millis(3000),
+                std::time::Duration::from_millis(2000),
+                std::time::Duration::from_millis(50),
+            );
+        });
+    }
+
+    pub fn run_stop_escalation(
+        pid: u32,
+        sigint_timeout: std::time::Duration,
+        sigterm_timeout: std::time::Duration,
+        poll_interval: std::time::Duration,
+    ) {
+        let pgid = Pid::from_raw(-(pid as i32));
+        let p_pid = Pid::from_raw(pid as i32);
+
+        // Step A: kill(-pid, Signal::SIGINT)
+        let _ = kill(pgid, Signal::SIGINT);
+
+        // Step B: Loop for sigint_timeout checking if PID has terminated
+        let start = std::time::Instant::now();
+        while start.elapsed() < sigint_timeout {
+            if !Self::is_process_alive(p_pid, pgid) {
+                return;
+            }
+            let remaining = sigint_timeout.saturating_sub(start.elapsed());
+            thread::sleep(poll_interval.min(remaining));
+        }
+        if !Self::is_process_alive(p_pid, pgid) {
+            return;
+        }
+
+        // Step C: If still alive, kill(-pid, Signal::SIGTERM)
+        let _ = kill(pgid, Signal::SIGTERM);
+
+        // Step D: Loop for sigterm_timeout checking if PID has terminated
+        let start = std::time::Instant::now();
+        while start.elapsed() < sigterm_timeout {
+            if !Self::is_process_alive(p_pid, pgid) {
+                return;
+            }
+            let remaining = sigterm_timeout.saturating_sub(start.elapsed());
+            thread::sleep(poll_interval.min(remaining));
+        }
+        if !Self::is_process_alive(p_pid, pgid) {
+            return;
+        }
+
+        // Step E: If still alive, kill(-pid, Signal::SIGKILL)
+        let _ = kill(pgid, Signal::SIGKILL);
+    }
+
+    fn is_process_alive(pid: Pid, pgid: Pid) -> bool {
+        kill(pid, None).is_ok() || kill(pgid, None).is_ok()
     }
 
     pub fn stop_all(&self) {
