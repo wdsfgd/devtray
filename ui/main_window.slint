@@ -238,6 +238,10 @@ export component MainWindow inherits Window {
 
                         TaskCard {
                             task: task;
+                            tr: root.tr;
+                            tr_logs: root.tr.logs;
+                            tr_edit: root.tr.edit;
+                            tr_del: root.tr.del;
 
                             toggle_task => {
                                 root.toggle_task(task.id);

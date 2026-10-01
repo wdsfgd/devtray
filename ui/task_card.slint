@@ -1,4 +1,5 @@
 import { Theme } from "theme.slint";
+import { I18nData } from "i18n.slint";
 
 export struct TaskItem {
     id: string,
@@ -13,6 +14,11 @@ export struct TaskItem {
 
 export component TaskCard inherits Rectangle {
     in property <TaskItem> task;
+    in property <I18nData> tr;
+    in property <string> tr_logs: root.tr.logs != "" ? root.tr.logs : "Logs";
+    in property <string> tr_edit: root.tr.edit != "" ? root.tr.edit : "Edit";
+    in property <string> tr_del: root.tr.del != "" ? root.tr.del : "Del";
+
     callback toggle_task();
     callback show_logs();
     callback edit_task();
@@ -122,136 +128,130 @@ export component TaskCard inherits Rectangle {
             }
         }
 
-        // 4. Action Toolbar (Revealed on hover) / Resting Status Tag
+        // 4. Action Toolbar: Hover text buttons + Permanent Start/Stop Toggle Button
         VerticalLayout {
             alignment: center;
 
-            Rectangle {
-                width: 116px;
-                height: 24px;
+            HorizontalLayout {
+                spacing: 6px;
+                alignment: end;
 
-                // Resting state: subtle status indicator
+                // Hover-revealed text action buttons (Logs, Edit, Del)
                 HorizontalLayout {
-                    alignment: end;
-                    opacity: root.is_hovered ? 0.0 : 1.0;
-                    animate opacity { duration: 150ms; }
-
-                    VerticalLayout {
-                        alignment: center;
-                        padding-right: 4px;
-
-                        Text {
-                            text: root.task.is_running ? "Running" : "Stopped";
-                            font-size: 11px;
-                            font-weight: 500;
-                            color: root.task.is_running ? Theme.running : Theme.text-muted;
-                        }
-                    }
-                }
-
-                // Hover state: 4 compact ghost icon buttons
-                HorizontalLayout {
-                    spacing: 4px;
+                    spacing: 6px;
                     alignment: end;
                     opacity: root.is_hovered ? 1.0 : 0.0;
                     animate opacity { duration: 150ms; }
 
-                    // Toggle Button
-                    Rectangle {
-                        width: 26px;
-                        height: 24px;
-                        background: root.task.is_running ?
-                            (btnToggle.pressed ? Theme.danger-surface : (btnToggle.has-hover ? Theme.danger-hover-bg : transparent)) :
-                            (btnToggle.pressed ? Theme.running-border : (btnToggle.has-hover ? Theme.running-bg : transparent));
-                        border-color: root.task.is_running ?
-                            (btnToggle.has-hover ? Theme.danger-border : transparent) :
-                            (btnToggle.has-hover ? Theme.running-border : transparent);
-                        border-width: 1px;
-                        border-radius: 5px;
-
-                        btnToggle := TouchArea {
-                            mouse-cursor: pointer;
-                            clicked => { root.toggle_task(); }
-                        }
-
-                        Text {
-                            text: root.task.is_running ? "⏹" : "▶";
-                            font-size: 10px;
-                            color: root.task.is_running ? Theme.danger : Theme.running;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
-                        }
-                    }
-
                     // Logs Button
                     Rectangle {
-                        width: 26px;
-                        height: 24px;
-                        background: btnLogs.pressed ? Theme.accent-pressed : (btnLogs.has-hover ? Theme.accent-hover : transparent);
-                        border-color: btnLogs.has-hover ? Theme.accent-border : transparent;
+                        height: 26px;
+                        background: btnLogs.pressed ? Theme.accent-pressed : (btnLogs.has-hover ? Theme.accent : transparent);
+                        border-color: btnLogs.has-hover ? Theme.accent-border : Theme.border;
                         border-width: 1px;
                         border-radius: 5px;
+
+                        HorizontalLayout {
+                            padding-left: 6px;
+                            padding-right: 6px;
+                            alignment: center;
+
+                            Text {
+                                text: root.tr_logs;
+                                font-size: 11px;
+                                font-weight: 500;
+                                color: btnLogs.has-hover ? Theme.text-primary : Theme.text-secondary;
+                                vertical-alignment: center;
+                            }
+                        }
 
                         btnLogs := TouchArea {
                             mouse-cursor: pointer;
                             clicked => { root.show_logs(); }
                         }
-
-                        Text {
-                            text: ">_";
-                            font-size: 9.5px;
-                            font-family: "DejaVu Sans Mono, monospace";
-                            font-weight: 700;
-                            color: btnLogs.has-hover ? Theme.text-primary : Theme.text-secondary;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
-                        }
                     }
 
                     // Edit Button
                     Rectangle {
-                        width: 26px;
-                        height: 24px;
-                        background: btnEdit.pressed ? Theme.accent-pressed : (btnEdit.has-hover ? Theme.accent-hover : transparent);
-                        border-color: btnEdit.has-hover ? Theme.accent-border : transparent;
+                        height: 26px;
+                        background: btnEdit.pressed ? Theme.accent-pressed : (btnEdit.has-hover ? Theme.accent : transparent);
+                        border-color: btnEdit.has-hover ? Theme.accent-border : Theme.border;
                         border-width: 1px;
                         border-radius: 5px;
+
+                        HorizontalLayout {
+                            padding-left: 6px;
+                            padding-right: 6px;
+                            alignment: center;
+
+                            Text {
+                                text: root.tr_edit;
+                                font-size: 11px;
+                                font-weight: 500;
+                                color: btnEdit.has-hover ? Theme.text-primary : Theme.text-secondary;
+                                vertical-alignment: center;
+                            }
+                        }
 
                         btnEdit := TouchArea {
                             mouse-cursor: pointer;
                             clicked => { root.edit_task(); }
                         }
-
-                        Text {
-                            text: "✎";
-                            font-size: 12px;
-                            color: btnEdit.has-hover ? Theme.text-primary : Theme.text-secondary;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
-                        }
                     }
 
                     // Delete Button
                     Rectangle {
-                        width: 26px;
-                        height: 24px;
+                        height: 26px;
                         background: btnDelete.pressed ? Theme.danger-surface : (btnDelete.has-hover ? Theme.danger-hover-bg : transparent);
-                        border-color: btnDelete.has-hover ? Theme.danger-border : transparent;
+                        border-color: btnDelete.has-hover ? Theme.danger-border : Theme.border;
                         border-width: 1px;
                         border-radius: 5px;
+
+                        HorizontalLayout {
+                            padding-left: 6px;
+                            padding-right: 6px;
+                            alignment: center;
+
+                            Text {
+                                text: root.tr_del;
+                                font-size: 11px;
+                                font-weight: 500;
+                                color: btnDelete.has-hover ? Theme.danger : Theme.text-secondary;
+                                vertical-alignment: center;
+                            }
+                        }
 
                         btnDelete := TouchArea {
                             mouse-cursor: pointer;
                             clicked => { root.delete_task(); }
                         }
+                    }
+                }
 
-                        Text {
-                            text: "✕";
-                            font-size: 11px;
-                            color: btnDelete.has-hover ? Theme.danger : Theme.text-secondary;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
-                        }
+                // Permanent Start/Stop Toggle Button
+                Rectangle {
+                    width: 28px;
+                    height: 26px;
+                    background: root.task.is_running ?
+                        (btnToggle.pressed ? #251012 : (btnToggle.has-hover ? Theme.danger-hover-bg : Theme.danger-surface)) :
+                        (btnToggle.pressed ? #0e2417 : (btnToggle.has-hover ? Theme.running-bg : #121815));
+                    border-color: root.task.is_running ?
+                        Theme.danger-border :
+                        (btnToggle.has-hover ? Theme.running : Theme.running-border);
+                    border-width: 1px;
+                    border-radius: 5px;
+
+                    btnToggle := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.toggle_task(); }
+                    }
+
+                    Text {
+                        text: root.task.is_running ? "⏹" : "▶";
+                        font-size: 10px;
+                        color: root.task.is_running ? Theme.danger : Theme.running;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
                     }
                 }
             }
