@@ -1,6 +1,9 @@
 pub mod core;
 pub mod gui;
 
+pub use core::config::AppConfig;
+pub use core::i18n::{I18nStrings, Language};
+
 slint::include_modules!();
 
 #[cfg(test)]
