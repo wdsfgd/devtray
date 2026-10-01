@@ -140,12 +140,12 @@ impl ksni::Tray for DevTraySysTray {
                 .into(),
             );
 
-            // 🛑 Stop All
+            // ⏹ Stop All
             let c = self.controller.clone();
             let g = group.clone();
             sub_items.push(
                 ksni::menu::StandardItem {
-                    label: "🛑 Stop All".to_string(),
+                    label: "⏹ Stop All".to_string(),
                     activate: Box::new(move |_| {
                         let _ = c.stop_group(&g);
                     }),

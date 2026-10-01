@@ -96,7 +96,7 @@ fn test_tray_menu_structure_with_groups_and_uncategorized() {
                 _ => panic!("Expected Start All"),
             }
             match &sub.submenu[1] {
-                MenuItem::Standard(item) => assert_eq!(item.label, "🛑 Stop All"),
+                MenuItem::Standard(item) => assert_eq!(item.label, "⏹ Stop All"),
                 _ => panic!("Expected Stop All"),
             }
             match &sub.submenu[2] {
@@ -124,7 +124,7 @@ fn test_tray_menu_structure_with_groups_and_uncategorized() {
                 _ => panic!("Expected Start All"),
             }
             match &sub.submenu[1] {
-                MenuItem::Standard(item) => assert_eq!(item.label, "🛑 Stop All"),
+                MenuItem::Standard(item) => assert_eq!(item.label, "⏹ Stop All"),
                 _ => panic!("Expected Stop All"),
             }
             match &sub.submenu[2] {
