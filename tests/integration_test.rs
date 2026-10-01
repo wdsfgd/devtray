@@ -211,3 +211,74 @@ fn test_end_to_end_bridge_full_lifecycle() {
     // Clean up
     controller.stop_all();
 }
+
+#[test]
+fn test_end_to_end_graceful_stop_and_log_search() {
+    let dir = tempdir().unwrap();
+    let config_file = dir.path().join("config.json");
+    let logs_dir = dir.path().join("logs");
+    let marker_file = dir.path().join("stopped.marker");
+
+    let cm = ConfigManager::with_path(config_file.clone());
+    let broadcaster = LogBroadcaster::new(logs_dir.clone(), 500);
+    let pm = ProcessManager::new(broadcaster.clone());
+
+    let controller = SlintAppController::new(cm, pm, broadcaster);
+
+    // 1. Add task with custom stop_command and group
+    let stop_cmd = format!("touch {}", marker_file.display());
+    let task = controller
+        .add_task_with_stop_command(
+            "Cluster-DB",
+            "while true; do echo 'cluster heartbeat status ok'; sleep 0.05; done",
+            ".",
+            Some("Database"),
+            Some(&stop_cmd),
+        )
+        .expect("add task with stop command should succeed");
+
+    // 2. Verify group aggregation
+    let groups = controller.get_groups();
+    assert_eq!(groups, vec!["Database".to_string()]);
+
+    // 3. Start task and subscribe to logs
+    let rx = controller.subscribe_logs(&task.name);
+    controller.start_task(&task.id).unwrap();
+    std::thread::sleep(Duration::from_millis(150));
+    assert!(controller.is_task_running(&task.id));
+
+    // 4. Verify log output & search functionality
+    let mut saw_heartbeat = false;
+    let deadline = std::time::Instant::now() + Duration::from_secs(3);
+    while std::time::Instant::now() < deadline {
+        if let Ok(line) = rx.recv_timeout(Duration::from_millis(100)) {
+            if line.contains("heartbeat") {
+                saw_heartbeat = true;
+                break;
+            }
+        }
+    }
+    assert!(saw_heartbeat, "Expected heartbeat in streamed logs");
+
+    let recent = controller.get_recent_logs(&task.name);
+    let combined = recent.join("\n");
+    let matches = devtray::core::logs::find_matches(&combined, "heartbeat");
+    assert!(!matches.is_empty(), "find_matches should find occurrences of 'heartbeat'");
+
+    // 5. Gracefully stop task using controller (triggers custom stop_command)
+    controller.stop_task(&task.id).unwrap();
+    std::thread::sleep(Duration::from_millis(300));
+    assert!(!controller.is_task_running(&task.id));
+    assert!(marker_file.exists(), "Custom stop command should have created marker file");
+
+    // 6. Verify task persistence with stop command
+    let cm_verify = ConfigManager::with_path(config_file);
+    let loaded = cm_verify.load().unwrap();
+    assert_eq!(loaded.len(), 1);
+    assert_eq!(loaded[0].name, "Cluster-DB");
+    assert_eq!(loaded[0].group.as_deref(), Some("Database"));
+    assert_eq!(loaded[0].stop_command.as_deref(), Some(stop_cmd.as_str()));
+
+    controller.stop_all();
+}
+
