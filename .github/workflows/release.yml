@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Tag name to release (e.g. v2.0.1)'
+        description: 'Tag name to release (e.g. v2.1.0)'
         required: false
         default: ''
 
@@ -59,7 +59,7 @@ jobs:
             TAG="${GITHUB_REF#refs/tags/}"
           fi
           if [ -z "$TAG" ] || [ "$TAG" = "main" ]; then
-            TAG="v2.0.1"
+            TAG="v2.1.0"
           fi
           echo "TAG=$TAG" >> $GITHUB_ENV
 
