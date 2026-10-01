@@ -193,7 +193,9 @@ impl ProcessManager {
         poll_interval: std::time::Duration,
     ) {
         let pgid = Pid::from_raw(-(pid as i32));
-        let p_pid = Pid::from_raw(pid as i32);
+        let pid_i32 = pid as i32;
+        let pgid_i32 = -(pid as i32);
+        let is_alive = || Self::is_process_alive(pid_i32) || Self::is_process_alive(pgid_i32);
 
         // Step A: kill(-pid, Signal::SIGINT)
         let _ = kill(pgid, Signal::SIGINT);
@@ -201,13 +203,13 @@ impl ProcessManager {
         // Step B: Loop for sigint_timeout checking if PID has terminated
         let start = std::time::Instant::now();
         while start.elapsed() < sigint_timeout {
-            if !Self::is_process_alive(p_pid, pgid) {
+            if !is_alive() {
                 return;
             }
             let remaining = sigint_timeout.saturating_sub(start.elapsed());
             thread::sleep(poll_interval.min(remaining));
         }
-        if !Self::is_process_alive(p_pid, pgid) {
+        if !is_alive() {
             return;
         }
 
@@ -217,13 +219,13 @@ impl ProcessManager {
         // Step D: Loop for sigterm_timeout checking if PID has terminated
         let start = std::time::Instant::now();
         while start.elapsed() < sigterm_timeout {
-            if !Self::is_process_alive(p_pid, pgid) {
+            if !is_alive() {
                 return;
             }
             let remaining = sigterm_timeout.saturating_sub(start.elapsed());
             thread::sleep(poll_interval.min(remaining));
         }
-        if !Self::is_process_alive(p_pid, pgid) {
+        if !is_alive() {
             return;
         }
 
@@ -231,8 +233,21 @@ impl ProcessManager {
         let _ = kill(pgid, Signal::SIGKILL);
     }
 
-    fn is_process_alive(pid: Pid, pgid: Pid) -> bool {
-        kill(pid, None).is_ok() || kill(pgid, None).is_ok()
+    pub fn is_alive_result(res: Result<(), nix::errno::Errno>) -> bool {
+        match res {
+            Ok(_) => true,
+            Err(nix::errno::Errno::EPERM) => true,
+            Err(_) => false,
+        }
+    }
+
+    pub fn is_process_alive(pid: i32) -> bool {
+        let nix_pid = Pid::from_raw(pid);
+        match kill(nix_pid, None) {
+            Ok(_) => true,
+            Err(nix::errno::Errno::EPERM) => true,
+            Err(_) => false,
+        }
     }
 
     pub fn stop_all(&self) {
@@ -244,4 +259,8 @@ impl ProcessManager {
             let _ = self.stop(&id);
         }
     }
+}
+
+pub fn is_process_alive(pid: i32) -> bool {
+    ProcessManager::is_process_alive(pid)
 }

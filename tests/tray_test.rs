@@ -18,6 +18,7 @@ fn test_tray_tooltip_formatting() {
 }
 
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn test_menu_on_activate_constant() {
     assert!(<DevTraySysTray as Tray>::MENU_ON_ACTIVATE);
 }

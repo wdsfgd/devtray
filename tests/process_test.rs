@@ -328,3 +328,32 @@ fn test_stop_does_not_block() {
     );
     assert!(!pm.is_running(&task.id));
 }
+
+#[test]
+fn test_is_process_alive_handles_eperm_and_liveness() {
+    // Error classification: EPERM indicates the process exists but cannot be signaled, so it is alive.
+    assert!(ProcessManager::is_alive_result(Ok(())));
+    assert!(ProcessManager::is_alive_result(Err(nix::errno::Errno::EPERM)));
+    assert!(!ProcessManager::is_alive_result(Err(nix::errno::Errno::ESRCH)));
+
+    // Process liveness verification on real processes
+    let current_pid = std::process::id() as i32;
+    assert!(ProcessManager::is_process_alive(current_pid));
+    assert!(devtray::core::process::is_process_alive(current_pid));
+
+    let mut child = std::process::Command::new("sleep")
+        .arg("5")
+        .spawn()
+        .expect("child should spawn");
+    let child_pid = child.id() as i32;
+    assert!(ProcessManager::is_process_alive(child_pid));
+
+    child.kill().expect("child should be killed");
+    let _ = child.wait();
+
+    // Reaped process should not be alive
+    assert!(!ProcessManager::is_process_alive(child_pid));
+
+    // Non-existent PID should not be alive
+    assert!(!ProcessManager::is_process_alive(999_999));
+}
