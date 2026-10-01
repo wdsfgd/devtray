@@ -57,6 +57,8 @@ impl DevTraySysTray {
 }
 
 impl ksni::Tray for DevTraySysTray {
+    const MENU_ON_ACTIVATE: bool = true;
+
     fn id(&self) -> String {
         "devtray".to_string()
     }

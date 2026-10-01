@@ -18,6 +18,11 @@ fn test_tray_tooltip_formatting() {
 }
 
 #[test]
+fn test_menu_on_activate_constant() {
+    assert!(<DevTraySysTray as Tray>::MENU_ON_ACTIVATE);
+}
+
+#[test]
 fn test_tray_icon_loading() {
     let icon = load_tray_icon().expect("Should load icon from embedded assets");
     assert!(icon.width > 0);
