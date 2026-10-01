@@ -48,12 +48,42 @@ pub fn order_tasks(tasks: &mut Vec<TaskConfig>) {
     *tasks = ordered;
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TaskSnapshot {
+    pub id: String,
+    pub name: String,
+    pub command: String,
+    pub working_directory: String,
+    pub group: String,
+    pub is_running: bool,
+    pub can_move_up: bool,
+    pub can_move_down: bool,
+}
+
+impl From<&TaskItem> for TaskSnapshot {
+    fn from(item: &TaskItem) -> Self {
+        Self {
+            id: item.id.to_string(),
+            name: item.name.to_string(),
+            command: item.command.to_string(),
+            working_directory: item.working_directory.to_string(),
+            group: item.group.to_string(),
+            is_running: item.is_running,
+            can_move_up: item.can_move_up,
+            can_move_down: item.can_move_down,
+        }
+    }
+}
+
+pub type TaskItemSnapshot = TaskSnapshot;
+
 #[derive(Clone)]
 pub struct SlintAppController {
     pub(crate) config_manager: Arc<ConfigManager>,
     pub(crate) process_manager: Arc<ProcessManager>,
     pub(crate) broadcaster: LogBroadcaster,
     pub(crate) task_list: Arc<Mutex<Vec<TaskConfig>>>,
+    pub(crate) last_task_snapshot: Arc<Mutex<Option<Vec<TaskSnapshot>>>>,
     active_log_subscription: Arc<Mutex<Option<crossbeam_channel::Sender<()>>>>,
 }
 
@@ -84,8 +114,18 @@ impl SlintAppController {
             process_manager: Arc::new(process_manager),
             broadcaster,
             task_list: Arc::new(Mutex::new(tasks)),
+            last_task_snapshot: Arc::new(Mutex::new(None)),
             active_log_subscription: Arc::new(Mutex::new(None)),
         }
+    }
+
+    pub fn invalidate_snapshot(&self) {
+        let mut snapshot = self.last_task_snapshot.lock().unwrap();
+        *snapshot = None;
+    }
+
+    pub fn last_snapshot(&self) -> Option<Vec<TaskSnapshot>> {
+        self.last_task_snapshot.lock().unwrap().clone()
     }
 
     pub fn tasks(&self) -> Vec<TaskConfig> {
@@ -151,11 +191,29 @@ impl SlintAppController {
             .collect()
     }
 
-    pub fn refresh_tasks(&self, ui: &MainWindow) {
+    pub fn refresh_tasks(&self, ui: &MainWindow) -> bool {
         let items = self.get_slint_task_items();
-        let model = Rc::new(VecModel::from(items));
-        ui.set_tasks(model.into());
-        ui.set_running_count(self.running_count() as i32);
+        let current_snapshots: Vec<TaskSnapshot> = items.iter().map(TaskSnapshot::from).collect();
+        let running = self.running_count() as i32;
+
+        let mut snapshot_lock = self.last_task_snapshot.lock().unwrap();
+        let needs_model_update = match &*snapshot_lock {
+            Some(cached) => cached != &current_snapshots,
+            None => true,
+        };
+
+        if needs_model_update {
+            *snapshot_lock = Some(current_snapshots);
+            let model = Rc::new(VecModel::from(items));
+            ui.set_tasks(model.into());
+            ui.set_running_count(running);
+            true
+        } else {
+            if ui.get_running_count() != running {
+                ui.set_running_count(running);
+            }
+            false
+        }
     }
 
     pub fn add_task(
@@ -170,6 +228,8 @@ impl SlintAppController {
         tasks.push(task.clone());
         order_tasks(&mut tasks);
         self.config_manager.save(&tasks)?;
+        drop(tasks);
+        self.invalidate_snapshot();
         Ok(task)
     }
 
@@ -212,6 +272,8 @@ impl SlintAppController {
         let updated_task = task.clone();
         order_tasks(&mut tasks);
         self.config_manager.save(&tasks)?;
+        drop(tasks);
+        self.invalidate_snapshot();
         Ok(updated_task)
     }
 
@@ -242,6 +304,8 @@ impl SlintAppController {
         }
 
         self.config_manager.save(&tasks)?;
+        drop(tasks);
+        self.invalidate_snapshot();
         Ok(())
     }
 
@@ -265,6 +329,8 @@ impl SlintAppController {
         if let Some(target) = target_pos {
             tasks.swap(pos, target);
             self.config_manager.save(&tasks)?;
+            drop(tasks);
+            self.invalidate_snapshot();
             Ok(true)
         } else {
             Ok(false)
@@ -293,6 +359,8 @@ impl SlintAppController {
         tasks.insert(clamped_target, task);
 
         self.config_manager.save(&tasks)?;
+        drop(tasks);
+        self.invalidate_snapshot();
         Ok(true)
     }
 

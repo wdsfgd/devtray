@@ -306,3 +306,118 @@ fn test_bridge_ui_binding_and_refresh() {
     let groups = controller.get_groups();
     assert_eq!(groups, vec!["Backend"]);
 }
+
+#[test]
+fn test_bridge_refresh_tasks_change_detection() {
+    let (controller, _dir) = setup_test_controller();
+
+    let t1 = controller
+        .add_task("Service 1", "echo 1", ".", Some("Backend"))
+        .unwrap();
+    let t2 = controller
+        .add_task("Service 2", "echo 2", ".", Some("Backend"))
+        .unwrap();
+
+    let Ok(window) = MainWindow::new() else {
+        eprintln!("Skipping test_bridge_refresh_tasks_change_detection: no display available");
+        return;
+    };
+
+    controller.bind_to_ui(&window);
+
+    // First call: snapshot was None -> must perform initial render and return true
+    let updated = controller.refresh_tasks(&window);
+    assert!(updated, "First refresh_tasks call should update model");
+    assert_eq!(window.get_tasks().row_count(), 2);
+    assert_eq!(window.get_running_count(), 0);
+
+    // Second call with NO changes: should detect unchanged state, skip ui.set_tasks, and return false
+    let updated_again = controller.refresh_tasks(&window);
+    assert!(
+        !updated_again,
+        "Subsequent refresh with no changes must skip model update to prevent hover reset"
+    );
+
+    // Third call with NO changes: still false
+    assert!(!controller.refresh_tasks(&window));
+
+    // Start a task: process state changes -> refresh_tasks should detect running change and return true
+    let t3 = controller
+        .add_task("Service 3", "sleep 5", ".", None)
+        .unwrap();
+
+    // Adding task invalidates/modifies snapshot -> next refresh must return true
+    let updated_after_add = controller.refresh_tasks(&window);
+    assert!(updated_after_add, "Refresh after add_task should update model");
+    assert_eq!(window.get_tasks().row_count(), 3);
+
+    // Consecutive refresh with no changes -> false
+    assert!(!controller.refresh_tasks(&window));
+
+    // Now start the task
+    controller.start_task(&t3.id).unwrap();
+    std::thread::sleep(Duration::from_millis(50));
+
+    // Refresh should detect process is now running -> returns true
+    let updated_after_start = controller.refresh_tasks(&window);
+    assert!(
+        updated_after_start,
+        "Refresh after task start should update model"
+    );
+    assert_eq!(window.get_running_count(), 1);
+
+    // Consecutive refresh while running -> false (hover is preserved!)
+    assert!(!controller.refresh_tasks(&window));
+
+    // Stop task
+    controller.stop_task(&t3.id).unwrap();
+    std::thread::sleep(Duration::from_millis(50));
+
+    // Refresh should detect process stopped -> returns true
+    let updated_after_stop = controller.refresh_tasks(&window);
+    assert!(
+        updated_after_stop,
+        "Refresh after task stop should update model"
+    );
+    assert_eq!(window.get_running_count(), 0);
+
+    // Consecutive refresh -> false
+    assert!(!controller.refresh_tasks(&window));
+
+    // Move task -> reorders tasks -> next refresh must return true
+    let moved = controller.move_task(&t2.id, -1).unwrap();
+    assert!(moved);
+    let updated_after_move = controller.refresh_tasks(&window);
+    assert!(
+        updated_after_move,
+        "Refresh after move_task should update model"
+    );
+
+    // Consecutive refresh -> false
+    assert!(!controller.refresh_tasks(&window));
+
+    // Update task
+    controller
+        .update_task(&t1.id, "Renamed 1", "echo 11", ".", Some("Backend"))
+        .unwrap();
+    let updated_after_update = controller.refresh_tasks(&window);
+    assert!(
+        updated_after_update,
+        "Refresh after update_task should update model"
+    );
+
+    // Consecutive refresh -> false
+    assert!(!controller.refresh_tasks(&window));
+
+    // Delete task
+    controller.delete_task(&t3.id).unwrap();
+    let updated_after_delete = controller.refresh_tasks(&window);
+    assert!(
+        updated_after_delete,
+        "Refresh after delete_task should update model"
+    );
+    assert_eq!(window.get_tasks().row_count(), 2);
+
+    // Consecutive refresh -> false
+    assert!(!controller.refresh_tasks(&window));
+}
