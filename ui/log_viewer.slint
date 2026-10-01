@@ -1,7 +1,9 @@
 import { Theme } from "theme.slint";
 import { ScrollView } from "std-widgets.slint";
+import { I18nData } from "i18n.slint";
 
 export component LogViewer inherits Rectangle {
+    in property <I18nData> tr;
     in-out property <bool> is_open: false;
     in property <string> task_name: "";
     in property <string> log_text: "";
@@ -42,7 +44,7 @@ export component LogViewer inherits Rectangle {
                 alignment: space-between;
 
                 Text {
-                    text: "Logs: " + (root.task_name != "" ? root.task_name : "Task");
+                    text: root.tr.logs_title_prefix + (root.task_name != "" ? root.task_name : "Task");
                     color: Theme.text-primary;
                     font-size: 14px;
                     font-weight: 700;
@@ -106,7 +108,7 @@ export component LogViewer inherits Rectangle {
                 }
 
                 if root.log_text == "" : Text {
-                    text: "(No logs recorded yet...)";
+                    text: root.tr.no_logs_recorded;
                     color: Theme.text-muted;
                     font-size: 11px;
                     font-italic: true;
@@ -135,7 +137,7 @@ export component LogViewer inherits Rectangle {
                     }
 
                     Text {
-                        text: "Copy Logs";
+                        text: root.tr.copy_logs;
                         color: copyBtnTouch.has-hover ? Theme.text-primary : Theme.text-secondary;
                         font-size: 11px;
                         font-weight: 500;
@@ -159,7 +161,7 @@ export component LogViewer inherits Rectangle {
                     }
 
                     Text {
-                        text: "Clear View";
+                        text: root.tr.clear_view;
                         color: clearBtnTouch.has-hover ? Theme.danger : Theme.text-secondary;
                         font-size: 11px;
                         font-weight: 500;
@@ -190,7 +192,7 @@ export component LogViewer inherits Rectangle {
                     }
 
                     Text {
-                        text: "Close";
+                        text: root.tr.close;
                         color: closeActionTouch.has-hover ? Theme.text-primary : Theme.text-secondary;
                         font-size: 11px;
                         font-weight: 500;

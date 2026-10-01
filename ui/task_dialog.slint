@@ -1,7 +1,9 @@
 import { Theme } from "theme.slint";
 import { LineEdit } from "std-widgets.slint";
+import { I18nData } from "i18n.slint";
 
 export component TaskDialog inherits Rectangle {
+    in property <I18nData> tr;
     in-out property <bool> is_open: false;
     in-out property <string> task_id: "";
     in-out property <string> name_text: "";
@@ -51,7 +53,7 @@ export component TaskDialog inherits Rectangle {
                         alignment: space-between;
 
                         Text {
-                            text: root.is_edit ? "Edit Task" : "Add Task";
+                            text: root.is_edit ? root.tr.edit_task_title : root.tr.add_task_title;
                             color: Theme.text-primary;
                             font-size: 14px;
                             font-weight: 700;
@@ -88,7 +90,7 @@ export component TaskDialog inherits Rectangle {
                         spacing: 4px;
 
                         Text {
-                            text: "Name";
+                            text: root.tr.field_name;
                             color: Theme.text-secondary;
                             font-size: 11px;
                             font-weight: 600;
@@ -106,7 +108,7 @@ export component TaskDialog inherits Rectangle {
                                 width: 100%;
                                 height: 100%;
                                 text <=> root.name_text;
-                                placeholder-text: "e.g. Frontend Server";
+                                placeholder-text: root.tr.placeholder_name;
                                 edited => {
                                     if root.error_message != "" && root.name_text != "" {
                                         root.error_message = "";
@@ -121,7 +123,7 @@ export component TaskDialog inherits Rectangle {
                         spacing: 4px;
 
                         Text {
-                            text: "Command";
+                            text: root.tr.field_command;
                             color: Theme.text-secondary;
                             font-size: 11px;
                             font-weight: 600;
@@ -139,7 +141,7 @@ export component TaskDialog inherits Rectangle {
                                 width: 100%;
                                 height: 100%;
                                 text <=> root.command_text;
-                                placeholder-text: "e.g. npm run dev";
+                                placeholder-text: root.tr.placeholder_command;
                                 edited => {
                                     if root.error_message != "" && root.command_text != "" {
                                         root.error_message = "";
@@ -154,7 +156,7 @@ export component TaskDialog inherits Rectangle {
                         spacing: 4px;
 
                         Text {
-                            text: "Working Directory";
+                            text: root.tr.field_working_dir;
                             color: Theme.text-secondary;
                             font-size: 11px;
                             font-weight: 600;
@@ -182,7 +184,7 @@ export component TaskDialog inherits Rectangle {
                         spacing: 4px;
 
                         Text {
-                            text: "Group (Optional)";
+                            text: root.tr.field_group;
                             color: Theme.text-secondary;
                             font-size: 11px;
                             font-weight: 600;
@@ -200,7 +202,7 @@ export component TaskDialog inherits Rectangle {
                                 width: 100%;
                                 height: 100%;
                                 text <=> root.group_text;
-                                placeholder-text: "e.g. Web";
+                                placeholder-text: root.tr.placeholder_group;
                             }
                         }
                     }
@@ -237,7 +239,7 @@ export component TaskDialog inherits Rectangle {
                             }
 
                             Text {
-                                text: "Cancel";
+                                text: root.tr.cancel;
                                 color: cancelBtnTouch.has-hover ? Theme.text-primary : Theme.text-secondary;
                                 font-size: 11px;
                                 font-weight: 500;
@@ -259,9 +261,9 @@ export component TaskDialog inherits Rectangle {
                                 mouse-cursor: pointer;
                                 clicked => {
                                     if root.name_text == "" {
-                                        root.error_message = "Task name cannot be empty";
+                                        root.error_message = root.tr.err_name_empty;
                                     } else if root.command_text == "" {
-                                        root.error_message = "Task command cannot be empty";
+                                        root.error_message = root.tr.err_command_empty;
                                     } else {
                                         root.save(
                                             root.task_id,
@@ -277,7 +279,7 @@ export component TaskDialog inherits Rectangle {
                             }
 
                             Text {
-                                text: "Save";
+                                text: root.tr.save;
                                 color: Theme.accent-text;
                                 font-size: 11px;
                                 font-weight: 600;

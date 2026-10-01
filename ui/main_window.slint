@@ -192,7 +192,7 @@ export component MainWindow inherits Window {
                 spacing: 6px;
 
                 Text {
-                    text: "No tasks configured";
+                    text: root.tr.no_tasks;
                     color: Theme.text-secondary;
                     font-size: 13px;
                     font-weight: 600;
@@ -200,7 +200,7 @@ export component MainWindow inherits Window {
                 }
 
                 Text {
-                    text: "Click '+ New Task' above to start managing background services.";
+                    text: root.tr.no_tasks_hint;
                     color: Theme.text-muted;
                     font-size: 11px;
                     horizontal-alignment: center;
@@ -226,7 +226,7 @@ export component MainWindow inherits Window {
                                 spacing: 8px;
 
                                 Text {
-                                    text: task.group != "" ? task.group : "UNCATEGORIZED";
+                                    text: task.group != "" ? task.group : root.tr.uncategorized;
                                     color: Theme.text-muted;
                                     font-size: 10px;
                                     font-weight: 700;
@@ -313,7 +313,7 @@ export component MainWindow inherits Window {
                     }
 
                     Text {
-                        text: "▶ Start All";
+                        text: root.tr.start_all;
                         color: btnStartAll.has-hover ? Theme.running : Theme.text-secondary;
                         font-size: 11px;
                         font-weight: 600;
@@ -337,7 +337,7 @@ export component MainWindow inherits Window {
                     }
 
                     Text {
-                        text: "⏹ Stop All";
+                        text: root.tr.stop_all;
                         color: btnStopAll.has-hover ? Theme.danger : Theme.text-secondary;
                         font-size: 11px;
                         font-weight: 600;
@@ -365,7 +365,7 @@ export component MainWindow inherits Window {
                     }
 
                     Text {
-                        text: "Quit";
+                        text: root.tr.quit;
                         color: btnQuit.has-hover ? Theme.text-secondary : Theme.text-muted;
                         font-size: 11px;
                         font-weight: 500;
@@ -379,6 +379,7 @@ export component MainWindow inherits Window {
 
     // Modal Dialogs
     TaskDialog {
+        tr: root.tr;
         is_open <=> root.task_dialog_open;
         is_edit: root.task_dialog_is_edit;
         task_id: root.task_dialog_id;
@@ -394,6 +395,7 @@ export component MainWindow inherits Window {
     }
 
     LogViewer {
+        tr: root.tr;
         is_open <=> root.log_viewer_open;
         task_name: root.log_viewer_task_name;
         log_text: root.log_viewer_text;
@@ -408,11 +410,12 @@ export component MainWindow inherits Window {
     }
 
     ConfirmDialog {
+        tr: root.tr;
         is_open <=> root.delete_dialog_open;
-        title: "Delete Task";
-        message: "Delete task '" + root.delete_task_name + "'?";
-        sub_message: "This will stop the task if running and remove it permanently.";
-        confirm_text: "Delete";
+        title: root.tr.delete_task_title;
+        message: root.tr.delete_confirm_prefix + root.delete_task_name + root.tr.delete_confirm_suffix;
+        sub_message: root.tr.delete_task_submessage;
+        confirm_text: root.tr.delete_confirm_button;
         is_destructive: true;
         context_id: root.delete_task_id;
 
@@ -422,11 +425,12 @@ export component MainWindow inherits Window {
     }
 
     ConfirmDialog {
+        tr: root.tr;
         is_open <=> root.quit_dialog_open;
-        title: "Quit DevTray";
-        message: "Are you sure you want to quit?";
-        sub_message: "This will stop all running tasks.";
-        confirm_text: "Quit";
+        title: root.tr.quit_title;
+        message: root.tr.quit_message;
+        sub_message: root.tr.quit_submessage;
+        confirm_text: root.tr.quit;
         is_destructive: true;
 
         confirmed(_) => {

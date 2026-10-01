@@ -1,6 +1,8 @@
 import { Theme } from "theme.slint";
+import { I18nData } from "i18n.slint";
 
 export component ConfirmDialog inherits Rectangle {
+    in property <I18nData> tr;
     in-out property <bool> is_open: false;
     in property <string> title: "Confirm";
     in property <string> message: "";
@@ -124,7 +126,7 @@ export component ConfirmDialog inherits Rectangle {
                             }
 
                             Text {
-                                text: "Cancel";
+                                text: root.tr.cancel != "" ? root.tr.cancel : "Cancel";
                                 color: cancelBtnTouch.has-hover ? Theme.text-primary : Theme.text-secondary;
                                 font-size: 11px;
                                 font-weight: 500;
@@ -153,7 +155,7 @@ export component ConfirmDialog inherits Rectangle {
                             }
 
                             Text {
-                                text: root.confirm_text;
+                                text: root.confirm_text != "" ? root.confirm_text : "OK";
                                 color: root.is_destructive ?
                                     (confirmBtnTouch.has-hover ? Theme.text-primary : Theme.danger) :
                                     Theme.accent-text;
