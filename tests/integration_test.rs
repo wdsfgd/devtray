@@ -7,6 +7,7 @@ use devtray::core::logs::LogBroadcaster;
 use devtray::core::model::TaskConfig;
 use devtray::core::process::ProcessManager;
 use devtray::gui::bridge::SlintAppController;
+use slint::{ComponentHandle, Model};
 
 #[test]
 fn test_end_to_end_task_management() {
@@ -281,4 +282,53 @@ fn test_end_to_end_graceful_stop_and_log_search() {
 
     controller.stop_all();
 }
+
+#[test]
+fn test_end_to_end_window_focus_and_group_lifecycle() {
+    let dir = tempdir().unwrap();
+    let config_file = dir.path().join("config.json");
+    let logs_dir = dir.path().join("logs");
+
+    let cm = ConfigManager::with_path(config_file);
+    let broadcaster = LogBroadcaster::new(logs_dir, 500);
+    let pm = ProcessManager::new(broadcaster.clone());
+
+    let controller = SlintAppController::new(cm, pm, broadcaster);
+
+    // 1. Verify show_and_activate executes safely
+    let window = devtray::MainWindow::new().expect("MainWindow creation");
+    devtray::gui::tray::show_and_activate(&window);
+    assert!(!window.window().is_minimized());
+
+    // 2. Add tasks across multiple groups (simulating TaskDialog save)
+    controller
+        .add_task("Web", "echo web", ".", Some("Frontend"))
+        .unwrap();
+    controller
+        .add_task("API", "echo api", ".", Some("Backend"))
+        .unwrap();
+
+    // 3. Groups aggregation reflects available groups sorted alphabetically
+    let groups = controller.get_groups();
+    assert_eq!(groups, vec!["Backend".to_string(), "Frontend".to_string()]);
+
+    // 4. Bind to UI, refresh, and verify available_groups model
+    controller.bind_to_ui(&window);
+    controller.refresh_tasks(&window);
+    let slint_groups: Vec<String> = window
+        .get_available_groups()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    assert_eq!(slint_groups, vec!["Backend".to_string(), "Frontend".to_string()]);
+
+    // 5. Simulate setting custom group in TaskDialog
+    window.set_task_dialog_group("Microservice".into());
+    assert_eq!(window.get_task_dialog_group().as_str(), "Microservice");
+
+    // 6. Resetting / uncategorized group
+    window.set_task_dialog_group("".into());
+    assert_eq!(window.get_task_dialog_group().as_str(), "");
+}
+
 
