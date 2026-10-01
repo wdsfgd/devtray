@@ -25,6 +25,19 @@ pub fn load_tray_icon() -> Option<ksni::Icon> {
     })
 }
 
+/// Shows the window, restores it if minimized, and requests active input focus from the window manager.
+pub fn show_and_activate(ui: &MainWindow) {
+    ui.show().ok();
+    ui.window().set_minimized(false);
+    use slint::winit_030::{winit, WinitWindowAccessor};
+    ui.window()
+        .with_winit_window(|winit_window: &winit::window::Window| {
+            winit_window.set_minimized(false);
+            winit_window.focus_window();
+            winit_window.request_user_attention(Some(winit::window::UserAttentionType::Critical));
+        });
+}
+
 /// Linux StatusNotifierItem system tray integration via `ksni`.
 pub struct DevTraySysTray {
     pub controller: Arc<SlintAppController>,
@@ -84,7 +97,7 @@ impl ksni::Tray for DevTraySysTray {
         let ui_weak = self.ui_handle.clone();
         slint::invoke_from_event_loop(move || {
             if let Some(ui) = ui_weak.upgrade() {
-                ui.show().ok();
+                show_and_activate(&ui);
             }
         })
         .ok();
@@ -103,7 +116,7 @@ impl ksni::Tray for DevTraySysTray {
                     let ui_weak = ui_weak.clone();
                     slint::invoke_from_event_loop(move || {
                         if let Some(ui) = ui_weak.upgrade() {
-                            ui.show().ok();
+                            show_and_activate(&ui);
                         }
                     })
                     .ok();

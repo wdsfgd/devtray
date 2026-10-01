@@ -42,7 +42,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let process_mgr = ProcessManager::new(broadcaster.clone());
     let config_mgr = ConfigManager::new();
 
-    let controller = Arc::new(SlintAppController::new(config_mgr, process_mgr, broadcaster));
+    let controller = Arc::new(SlintAppController::new(
+        config_mgr,
+        process_mgr,
+        broadcaster,
+    ));
 
     // 4. Initialize MainWindow and call controller.bind_to_ui(&main_window)
     let main_window = MainWindow::new()?;
@@ -58,7 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let ui_weak = ui_weak.clone();
             slint::invoke_from_event_loop(move || {
                 if let Some(ui) = ui_weak.upgrade() {
-                    ui.show().ok();
+                    devtray::gui::tray::show_and_activate(&ui);
                 }
             })
             .ok();

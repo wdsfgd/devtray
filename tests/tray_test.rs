@@ -7,6 +7,7 @@ use devtray::gui::tray::{format_tray_tooltip, load_tray_icon, DevTraySysTray};
 use devtray::MainWindow;
 use ksni::menu::MenuItem;
 use ksni::Tray;
+use slint::ComponentHandle;
 use std::sync::Arc;
 use tempfile::tempdir;
 
@@ -63,10 +64,18 @@ fn test_tray_menu_structure_with_groups_and_uncategorized() {
     let ui_handle = slint::Weak::<MainWindow>::default();
 
     // Add tasks
-    controller.add_task("Backend", "echo backend", ".", Some("Web")).unwrap();
-    controller.add_task("Frontend", "echo frontend", ".", Some("Web")).unwrap();
-    controller.add_task("Postgres", "echo postgres", ".", Some("Database")).unwrap();
-    controller.add_task("Standalone Worker", "echo worker", ".", None).unwrap();
+    controller
+        .add_task("Backend", "echo backend", ".", Some("Web"))
+        .unwrap();
+    controller
+        .add_task("Frontend", "echo frontend", ".", Some("Web"))
+        .unwrap();
+    controller
+        .add_task("Postgres", "echo postgres", ".", Some("Database"))
+        .unwrap();
+    controller
+        .add_task("Standalone Worker", "echo worker", ".", None)
+        .unwrap();
 
     let tray = DevTraySysTray::new(controller.clone(), ui_handle);
     let menu = tray.menu();
@@ -225,4 +234,11 @@ fn test_tray_menu_structure_with_groups_and_uncategorized() {
         MenuItem::Standard(item) => assert_eq!(item.label, "退出"),
         _ => panic!("Expected StandardItem for 退出"),
     }
+}
+
+#[test]
+fn test_show_and_activate_helper() {
+    let window = MainWindow::new().unwrap();
+    devtray::gui::tray::show_and_activate(&window);
+    assert!(!window.window().is_minimized());
 }
