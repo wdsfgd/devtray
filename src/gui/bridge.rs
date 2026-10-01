@@ -1,8 +1,9 @@
 use crate::core::config::ConfigManager;
+use crate::core::i18n::{I18nStrings, Language};
 use crate::core::logs::LogBroadcaster;
 use crate::core::model::{ModelError, TaskConfig};
 use crate::core::process::ProcessManager;
-use crate::{MainWindow, TaskItem};
+use crate::{I18nData, MainWindow, TaskItem};
 use slint::{ComponentHandle, SharedString, VecModel};
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -77,6 +78,60 @@ impl From<&TaskItem> for TaskSnapshot {
 
 pub type TaskItemSnapshot = TaskSnapshot;
 
+impl From<I18nStrings> for I18nData {
+    fn from(s: I18nStrings) -> Self {
+        Self {
+            lang_code: SharedString::from(s.lang_code),
+            lang_switch_label: SharedString::from(s.lang_switch_label),
+            active_suffix: SharedString::from(s.active_suffix),
+            new_task: SharedString::from(s.new_task),
+            no_tasks: SharedString::from(s.no_tasks),
+            no_tasks_hint: SharedString::from(s.no_tasks_hint),
+            uncategorized: SharedString::from(s.uncategorized),
+            running: SharedString::from(s.running),
+            stopped: SharedString::from(s.stopped),
+            logs: SharedString::from(s.logs),
+            edit: SharedString::from(s.edit),
+            del: SharedString::from(s.del),
+            start_all: SharedString::from(s.start_all),
+            stop_all: SharedString::from(s.stop_all),
+            quit: SharedString::from(s.quit),
+            add_task_title: SharedString::from(s.add_task_title),
+            edit_task_title: SharedString::from(s.edit_task_title),
+            field_name: SharedString::from(s.field_name),
+            placeholder_name: SharedString::from(s.placeholder_name),
+            field_command: SharedString::from(s.field_command),
+            placeholder_command: SharedString::from(s.placeholder_command),
+            field_working_dir: SharedString::from(s.field_working_dir),
+            field_group: SharedString::from(s.field_group),
+            placeholder_group: SharedString::from(s.placeholder_group),
+            err_name_empty: SharedString::from(s.err_name_empty),
+            err_command_empty: SharedString::from(s.err_command_empty),
+            cancel: SharedString::from(s.cancel),
+            save: SharedString::from(s.save),
+            delete_task_title: SharedString::from(s.delete_task_title),
+            delete_confirm_prefix: SharedString::from(s.delete_confirm_prefix),
+            delete_confirm_suffix: SharedString::from(s.delete_confirm_suffix),
+            delete_task_submessage: SharedString::from(s.delete_task_submessage),
+            delete_confirm_button: SharedString::from(s.delete_confirm_button),
+            quit_title: SharedString::from(s.quit_title),
+            quit_message: SharedString::from(s.quit_message),
+            quit_submessage: SharedString::from(s.quit_submessage),
+            logs_title_prefix: SharedString::from(s.logs_title_prefix),
+            no_logs_recorded: SharedString::from(s.no_logs_recorded),
+            copy_logs: SharedString::from(s.copy_logs),
+            clear_view: SharedString::from(s.clear_view),
+            close: SharedString::from(s.close),
+        }
+    }
+}
+
+impl From<Language> for I18nData {
+    fn from(lang: Language) -> Self {
+        I18nData::from(lang.strings())
+    }
+}
+
 #[derive(Clone)]
 pub struct SlintAppController {
     pub(crate) config_manager: Arc<ConfigManager>,
@@ -85,6 +140,7 @@ pub struct SlintAppController {
     pub(crate) task_list: Arc<Mutex<Vec<TaskConfig>>>,
     pub(crate) last_task_snapshot: Arc<Mutex<Option<Vec<TaskSnapshot>>>>,
     active_log_subscription: Arc<Mutex<Option<crossbeam_channel::Sender<()>>>>,
+    pub(crate) language: Arc<Mutex<Language>>,
 }
 
 impl Default for SlintAppController {
@@ -109,6 +165,7 @@ impl SlintAppController {
     ) -> Self {
         let mut tasks = config_manager.load().unwrap_or_default();
         order_tasks(&mut tasks);
+        let language = config_manager.load_language().unwrap_or_default();
         Self {
             config_manager: Arc::new(config_manager),
             process_manager: Arc::new(process_manager),
@@ -116,7 +173,33 @@ impl SlintAppController {
             task_list: Arc::new(Mutex::new(tasks)),
             last_task_snapshot: Arc::new(Mutex::new(None)),
             active_log_subscription: Arc::new(Mutex::new(None)),
+            language: Arc::new(Mutex::new(language)),
         }
+    }
+
+    pub fn language(&self) -> Language {
+        *self.language.lock().unwrap()
+    }
+
+    pub fn get_i18n_data(&self) -> I18nData {
+        let lang = self.language();
+        I18nData::from(lang)
+    }
+
+    pub fn set_language(&self, new_lang: Language) {
+        let mut lang = self.language.lock().unwrap();
+        *lang = new_lang;
+        drop(lang);
+        let _ = self.config_manager.save_language(new_lang);
+    }
+
+    pub fn toggle_language(&self) -> Language {
+        let mut lang = self.language.lock().unwrap();
+        let new_lang = lang.toggle();
+        *lang = new_lang;
+        drop(lang);
+        let _ = self.config_manager.save_language(new_lang);
+        new_lang
     }
 
     pub fn invalidate_snapshot(&self) {
@@ -476,6 +559,8 @@ impl SlintAppController {
     }
 
     pub fn bind_to_ui(&self, ui: &MainWindow) {
+        ui.set_tr(self.get_i18n_data());
+
         let controller = self.clone();
 
         // 1. Toggle Task (start / stop)
@@ -625,6 +710,18 @@ impl SlintAppController {
                     }
                 })
                 .ok();
+            });
+        }
+
+        // 12. Toggle language
+        {
+            let c = controller.clone();
+            let ui_weak = ui.as_weak();
+            ui.on_toggle_language(move || {
+                c.toggle_language();
+                if let Some(ui) = ui_weak.upgrade() {
+                    ui.set_tr(c.get_i18n_data());
+                }
             });
         }
     }

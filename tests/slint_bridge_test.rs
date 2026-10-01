@@ -1,4 +1,5 @@
 use devtray::core::config::ConfigManager;
+use devtray::core::i18n::Language;
 use devtray::core::logs::LogBroadcaster;
 use devtray::core::process::ProcessManager;
 use devtray::gui::bridge::{BridgeError, SlintAppController};
@@ -421,3 +422,82 @@ fn test_bridge_refresh_tasks_change_detection() {
     // Consecutive refresh -> false
     assert!(!controller.refresh_tasks(&window));
 }
+
+#[test]
+fn test_bridge_i18n_binding_and_language_toggle() {
+    let (controller, dir) = setup_test_controller();
+    let config_file = dir.path().join("config.json");
+
+    // 1. Check default controller language and i18n data
+    assert_eq!(controller.language(), Language::En);
+    let i18n = controller.get_i18n_data();
+    assert_eq!(i18n.lang_code.as_str(), "en");
+    assert_eq!(i18n.lang_switch_label.as_str(), "ZH");
+    assert_eq!(i18n.new_task.as_str(), "+ New Task");
+    assert_eq!(i18n.active_suffix.as_str(), " active");
+
+    let Ok(window) = MainWindow::new() else {
+        eprintln!("Skipping UI portion of test_bridge_i18n_binding_and_language_toggle: no display");
+        return;
+    };
+
+    // 2. Bind to UI -> tr should be populated with English strings
+    controller.bind_to_ui(&window);
+
+    let tr = window.get_tr();
+    assert_eq!(tr.lang_code.as_str(), "en");
+    assert_eq!(tr.lang_switch_label.as_str(), "ZH");
+    assert_eq!(tr.new_task.as_str(), "+ New Task");
+    assert_eq!(tr.active_suffix.as_str(), " active");
+
+    // 3. Invoke toggle_language callback from UI -> should switch to Chinese
+    window.invoke_toggle_language();
+
+    assert_eq!(controller.language(), Language::Zh);
+    let tr_zh = window.get_tr();
+    assert_eq!(tr_zh.lang_code.as_str(), "zh");
+    assert_eq!(tr_zh.lang_switch_label.as_str(), "EN");
+    assert_eq!(tr_zh.new_task.as_str(), "+ 新建任务");
+    assert_eq!(tr_zh.active_suffix.as_str(), " 运行中");
+
+    // Check persistence to config file
+    let cm_verify = ConfigManager::with_path(config_file.clone());
+    assert_eq!(cm_verify.load_language().unwrap(), Language::Zh);
+
+    // 4. Invoke toggle_language again -> should switch back to English
+    window.invoke_toggle_language();
+
+    assert_eq!(controller.language(), Language::En);
+    let tr_en = window.get_tr();
+    assert_eq!(tr_en.lang_code.as_str(), "en");
+    assert_eq!(tr_en.lang_switch_label.as_str(), "ZH");
+    assert_eq!(tr_en.new_task.as_str(), "+ New Task");
+    assert_eq!(tr_en.active_suffix.as_str(), " active");
+
+    assert_eq!(cm_verify.load_language().unwrap(), Language::En);
+
+    // 5. Test initialization with pre-configured Chinese language
+    let dir2 = tempdir().unwrap();
+    let config_file2 = dir2.path().join("config.json");
+    let cm2 = ConfigManager::with_path(config_file2.clone());
+    cm2.save_language(Language::Zh).unwrap();
+
+    let logs2 = LogBroadcaster::new(dir2.path().join("logs"), 100);
+    let process2 = ProcessManager::new(logs2.clone());
+    let controller2 = SlintAppController::new(cm2, process2, logs2);
+
+    assert_eq!(controller2.language(), Language::Zh);
+    let i18n_zh = controller2.get_i18n_data();
+    assert_eq!(i18n_zh.lang_code.as_str(), "zh");
+    assert_eq!(i18n_zh.lang_switch_label.as_str(), "EN");
+    assert_eq!(i18n_zh.new_task.as_str(), "+ 新建任务");
+
+    if let Ok(window2) = MainWindow::new() {
+        controller2.bind_to_ui(&window2);
+        let tr2 = window2.get_tr();
+        assert_eq!(tr2.lang_code.as_str(), "zh");
+        assert_eq!(tr2.lang_switch_label.as_str(), "EN");
+        assert_eq!(tr2.new_task.as_str(), "+ 新建任务");
+    }
+}
+
