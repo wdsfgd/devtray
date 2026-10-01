@@ -528,11 +528,12 @@ fn test_bridge_task_dialog_available_groups_and_stop_command() {
 
     controller.bind_to_ui(&window);
 
-    // 1. Open Add Dialog -> available_groups supplied, stop_command is empty
+    // 1. Open Add Dialog -> available_groups supplied, stop_command is empty, group is empty
     window.invoke_open_add_task();
     assert!(window.get_task_dialog_open());
     assert!(!window.get_task_dialog_is_edit());
     assert_eq!(window.get_task_dialog_stop_command().as_str(), "");
+    assert_eq!(window.get_task_dialog_group().as_str(), "");
     assert_eq!(window.get_available_groups().row_count(), 2);
     assert_eq!(
         window.get_available_groups().row_data(0).unwrap().as_str(),
@@ -543,10 +544,11 @@ fn test_bridge_task_dialog_available_groups_and_stop_command() {
         "Proxies"
     );
 
-    // 2. Open Edit Dialog for task with stop_command -> available_groups and stop_command populated
+    // 2. Open Edit Dialog for task with stop_command -> available_groups, group, and stop_command populated
     window.invoke_edit_task(t2.id.as_str().into());
     assert!(window.get_task_dialog_open());
     assert!(window.get_task_dialog_is_edit());
+    assert_eq!(window.get_task_dialog_group().as_str(), "Proxies");
     assert_eq!(
         window.get_task_dialog_stop_command().as_str(),
         "podman compose down"
