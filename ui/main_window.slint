@@ -25,6 +25,9 @@ export component MainWindow inherits Window {
     in-out property <string> log_viewer_text: "";
     in-out property <string> log_viewer_task_name: "";
     in-out property <bool> log_viewer_open: false;
+    in-out property <string> log_viewer_search_query: "";
+    in-out property <int> log_viewer_match_count: 0;
+    in-out property <int> log_viewer_match_index: 0;
 
     // Task dialog properties
     in-out property <bool> task_dialog_open: false;
@@ -58,6 +61,13 @@ export component MainWindow inherits Window {
     callback confirm_delete_task(string /* id */);
     callback start_all();
     callback stop_all();
+    callback log_search(string /* query */);
+    callback log_find_next();
+    callback log_find_prev();
+
+    public function set_log_selection(start: int, end: int) {
+        log_viewer.set_selection(start, end);
+    }
     callback quit_app();
     callback clear_logs();
     callback copy_logs();
@@ -401,11 +411,26 @@ export component MainWindow inherits Window {
         }
     }
 
-    LogViewer {
+    log_viewer := LogViewer {
         tr: root.tr;
         is_open <=> root.log_viewer_open;
         task_name: root.log_viewer_task_name;
         log_text: root.log_viewer_text;
+        search_query <=> root.log_viewer_search_query;
+        match_count: root.log_viewer_match_count;
+        match_index: root.log_viewer_match_index;
+
+        search(q) => {
+            root.log_search(q);
+        }
+
+        find_next => {
+            root.log_find_next();
+        }
+
+        find_prev => {
+            root.log_find_prev();
+        }
 
         copy_logs => {
             root.copy_logs();

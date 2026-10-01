@@ -29,6 +29,56 @@ pub fn strip_ansi_codes(input: &str) -> String {
     result
 }
 
+/// Finds all case-insensitive occurrences of `needle` in `haystack`, returning
+/// their byte offset pairs `(start, end)` suitable for text selection / slicing.
+pub fn find_matches(haystack: &str, needle: &str) -> Vec<(usize, usize)> {
+    if needle.is_empty() || haystack.is_empty() {
+        return Vec::new();
+    }
+    let needle_lower = needle.to_lowercase();
+    let haystack_lower = haystack.to_lowercase();
+
+    // Fast path: if lowercasing preserved byte length (ASCII, CJK, etc.)
+    if haystack_lower.len() == haystack.len() {
+        let mut matches = Vec::new();
+        let mut start = 0;
+        while let Some(pos) = haystack_lower[start..].find(&needle_lower) {
+            let actual_start = start + pos;
+            let actual_end = actual_start + needle_lower.len();
+            matches.push((actual_start, actual_end));
+            start = actual_end;
+        }
+        return matches;
+    }
+
+    // Unicode edge case: lowercasing changed byte length
+    let mut lower_to_orig = Vec::with_capacity(haystack_lower.len() + 1);
+    for (orig_byte, ch) in haystack.char_indices() {
+        let ch_lower_len = ch.to_lowercase().to_string().len();
+        for _ in 0..ch_lower_len {
+            lower_to_orig.push(orig_byte);
+        }
+    }
+    lower_to_orig.push(haystack.len());
+
+    let mut matches = Vec::new();
+    let mut start = 0;
+    while let Some(pos) = haystack_lower[start..].find(&needle_lower) {
+        let lower_start = start + pos;
+        let lower_end = lower_start + needle_lower.len();
+        let orig_start = lower_to_orig[lower_start];
+        let orig_end = if lower_end < lower_to_orig.len() {
+            lower_to_orig[lower_end]
+        } else {
+            haystack.len()
+        };
+        matches.push((orig_start, orig_end));
+        start = lower_end;
+    }
+    matches
+}
+
+
 #[derive(Clone, Debug)]
 pub struct LogBroadcaster {
     log_dir: PathBuf,

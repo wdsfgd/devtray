@@ -136,6 +136,13 @@ impl From<Language> for I18nData {
     }
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct LogSearchState {
+    pub query: String,
+    pub matches: Vec<(usize, usize)>,
+    pub current_index: usize,
+}
+
 #[derive(Clone)]
 pub struct SlintAppController {
     pub(crate) config_manager: Arc<ConfigManager>,
@@ -145,6 +152,7 @@ pub struct SlintAppController {
     pub(crate) last_task_snapshot: Arc<Mutex<Option<Vec<TaskSnapshot>>>>,
     active_log_subscription: Arc<Mutex<Option<crossbeam_channel::Sender<()>>>>,
     pub(crate) language: Arc<Mutex<Language>>,
+    pub(crate) log_search_state: Arc<Mutex<LogSearchState>>,
 }
 
 impl Default for SlintAppController {
@@ -178,6 +186,7 @@ impl SlintAppController {
             last_task_snapshot: Arc::new(Mutex::new(None)),
             active_log_subscription: Arc::new(Mutex::new(None)),
             language: Arc::new(Mutex::new(language)),
+            log_search_state: Arc::new(Mutex::new(LogSearchState::default())),
         }
     }
 
@@ -630,6 +639,12 @@ impl SlintAppController {
             ui.set_log_viewer_text(initial_text.into());
             ui.set_log_viewer_task_name(task_name.into());
             ui.set_log_viewer_open(true);
+            ui.set_log_viewer_search_query("".into());
+            ui.set_log_viewer_match_count(0);
+            ui.set_log_viewer_match_index(0);
+            ui.invoke_set_log_selection(0, 0);
+            let mut search_guard = self.log_search_state.lock().unwrap();
+            *search_guard = LogSearchState::default();
         }
 
         let (stop_tx, stop_rx) = crossbeam_channel::bounded::<()>(1);
@@ -641,6 +656,7 @@ impl SlintAppController {
         let rx = self.subscribe_logs(task_name);
         let ui_weak_clone = ui_weak.clone();
         let target_name = task_name.to_string();
+        let search_state_clone = self.log_search_state.clone();
 
         std::thread::spawn(move || loop {
             crossbeam_channel::select! {
@@ -651,6 +667,7 @@ impl SlintAppController {
                             let ui_weak = ui_weak_clone.clone();
                             let line_clone = line;
                             let expected_name = target_name.clone();
+                            let search_state = search_state_clone.clone();
                             slint::invoke_from_event_loop(move || {
                                 if let Some(ui) = ui_weak.upgrade() {
                                     if ui.get_log_viewer_open()
@@ -662,7 +679,16 @@ impl SlintAppController {
                                         } else {
                                             format!("{}\n{}", current, line_clone)
                                         };
-                                        ui.set_log_viewer_text(new_text.into());
+                                        ui.set_log_viewer_text(new_text.as_str().into());
+
+                                        let mut search_guard = search_state.lock().unwrap();
+                                        if !search_guard.query.is_empty() {
+                                            search_guard.matches = crate::core::logs::find_matches(
+                                                new_text.as_str(),
+                                                &search_guard.query,
+                                            );
+                                            ui.set_log_viewer_match_count(search_guard.matches.len() as i32);
+                                        }
                                     }
                                 }
                             })
@@ -673,6 +699,66 @@ impl SlintAppController {
                 }
             }
         });
+    }
+
+    pub fn search_logs(&self, query: &str, ui: &MainWindow) {
+        let mut state = self.log_search_state.lock().unwrap();
+        state.query = query.to_string();
+        if query.is_empty() {
+            state.matches.clear();
+            state.current_index = 0;
+            ui.set_log_viewer_match_count(0);
+            ui.set_log_viewer_match_index(0);
+            ui.invoke_set_log_selection(0, 0);
+            return;
+        }
+
+        let text = ui.get_log_viewer_text();
+        let matches = crate::core::logs::find_matches(text.as_str(), query);
+        let count = matches.len();
+        state.matches = matches;
+        state.current_index = 0;
+
+        ui.set_log_viewer_match_count(count as i32);
+        ui.set_log_viewer_match_index(0);
+
+        if let Some(&(start, end)) = state.matches.first() {
+            ui.invoke_set_log_selection(start as i32, end as i32);
+        } else {
+            ui.invoke_set_log_selection(0, 0);
+        }
+    }
+
+    pub fn find_next_log_match(&self, ui: &MainWindow) {
+        let mut state = self.log_search_state.lock().unwrap();
+        if state.matches.is_empty() {
+            return;
+        }
+        state.current_index = (state.current_index + 1) % state.matches.len();
+        let idx = state.current_index;
+        let (start, end) = state.matches[idx];
+        ui.set_log_viewer_match_index(idx as i32);
+        ui.invoke_set_log_selection(start as i32, end as i32);
+    }
+
+    pub fn find_prev_log_match(&self, ui: &MainWindow) {
+        let mut state = self.log_search_state.lock().unwrap();
+        if state.matches.is_empty() {
+            return;
+        }
+        state.current_index = if state.current_index == 0 {
+            state.matches.len() - 1
+        } else {
+            state.current_index - 1
+        };
+        let idx = state.current_index;
+        let (start, end) = state.matches[idx];
+        ui.set_log_viewer_match_index(idx as i32);
+        ui.invoke_set_log_selection(start as i32, end as i32);
+    }
+
+    pub fn log_search_state(&self) -> LogSearchState {
+        self.log_search_state.lock().unwrap().clone()
     }
 
     pub fn bind_to_ui(&self, ui: &MainWindow) {
@@ -815,10 +901,17 @@ impl SlintAppController {
 
         // 8. Clear Logs
         {
+            let c = controller.clone();
             let ui_weak = ui.as_weak();
             ui.on_clear_logs(move || {
                 if let Some(ui) = ui_weak.upgrade() {
                     ui.set_log_viewer_text("".into());
+                    ui.set_log_viewer_search_query("".into());
+                    ui.set_log_viewer_match_count(0);
+                    ui.set_log_viewer_match_index(0);
+                    ui.invoke_set_log_selection(0, 0);
+                    let mut search_guard = c.log_search_state.lock().unwrap();
+                    *search_guard = LogSearchState::default();
                 }
             });
         }
@@ -867,6 +960,35 @@ impl SlintAppController {
                 c.toggle_language();
                 if let Some(ui) = ui_weak.upgrade() {
                     ui.set_tr(c.get_i18n_data());
+                }
+            });
+        }
+
+        // 13. Log Search
+        {
+            let c = controller.clone();
+            let ui_weak = ui.as_weak();
+            ui.on_log_search(move |query| {
+                if let Some(ui) = ui_weak.upgrade() {
+                    c.search_logs(query.as_str(), &ui);
+                }
+            });
+        }
+        {
+            let c = controller.clone();
+            let ui_weak = ui.as_weak();
+            ui.on_log_find_next(move || {
+                if let Some(ui) = ui_weak.upgrade() {
+                    c.find_next_log_match(&ui);
+                }
+            });
+        }
+        {
+            let c = controller.clone();
+            let ui_weak = ui.as_weak();
+            ui.on_log_find_prev(move || {
+                if let Some(ui) = ui_weak.upgrade() {
+                    c.find_prev_log_match(&ui);
                 }
             });
         }

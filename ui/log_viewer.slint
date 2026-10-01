@@ -1,5 +1,5 @@
 import { Theme } from "theme.slint";
-import { ScrollView } from "std-widgets.slint";
+import { LineEdit, TextEdit } from "std-widgets.slint";
 import { I18nData } from "i18n.slint";
 
 export component LogViewer inherits Rectangle {
@@ -7,9 +7,19 @@ export component LogViewer inherits Rectangle {
     in-out property <bool> is_open: false;
     in property <string> task_name: "";
     in property <string> log_text: "";
+    in-out property <string> search_query: "";
+    in property <int> match_count: 0;
+    in property <int> match_index: 0;
+    callback search(string);
+    callback find_next();
+    callback find_prev();
     callback copy_logs();
     callback clear_view();
     callback close();
+
+    public function set_selection(start: int, end: int) {
+        logTextEdit.set-selection-offsets(start, end);
+    }
 
     visible: root.is_open;
     z: 100;
@@ -77,6 +87,89 @@ export component LogViewer inherits Rectangle {
                 }
             }
 
+            // Find / Search Toolbar
+            HorizontalLayout {
+                height: 28px;
+                spacing: 8px;
+
+                search_input := LineEdit {
+                    horizontal-stretch: 1;
+                    placeholder-text: root.tr.search_logs;
+                    text <=> root.search_query;
+                    edited(val) => {
+                        root.search(val);
+                    }
+                    accepted => {
+                        root.find_next();
+                    }
+                }
+
+                // Match counter indicator
+                Rectangle {
+                    width: 70px;
+                    background: transparent;
+                    HorizontalLayout {
+                        alignment: center;
+                        Text {
+                            text: root.search_query == "" ? "" : (root.match_count > 0 ? (root.match_index + 1) + "/" + root.match_count : root.tr.no_matches);
+                            color: root.match_count > 0 ? Theme.text-secondary : Theme.danger;
+                            font-size: 11px;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                // Prev Button
+                Rectangle {
+                    width: 28px;
+                    height: 28px;
+                    background: prevBtnTouch.has-hover ? Theme.accent-hover : Theme.accent;
+                    border-color: Theme.border;
+                    border-width: 1px;
+                    border-radius: 6px;
+
+                    prevBtnTouch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.find_prev();
+                        }
+                    }
+
+                    Text {
+                        text: "▲";
+                        color: prevBtnTouch.has-hover ? Theme.text-primary : Theme.text-secondary;
+                        font-size: 10px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                // Next Button
+                Rectangle {
+                    width: 28px;
+                    height: 28px;
+                    background: nextBtnTouch.has-hover ? Theme.accent-hover : Theme.accent;
+                    border-color: Theme.border;
+                    border-width: 1px;
+                    border-radius: 6px;
+
+                    nextBtnTouch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.find_next();
+                        }
+                    }
+
+                    Text {
+                        text: "▼";
+                        color: nextBtnTouch.has-hover ? Theme.text-primary : Theme.text-secondary;
+                        font-size: 10px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
             // Terminal Log Box
             Rectangle {
                 vertical-stretch: 1;
@@ -86,25 +179,16 @@ export component LogViewer inherits Rectangle {
                 border-radius: 6px;
                 clip: true;
 
-                ScrollView {
+                logTextEdit := TextEdit {
                     x: 6px;
                     y: 6px;
                     width: parent.width - 12px;
                     height: parent.height - 12px;
-                    viewport-height: log_layout.preferred-height;
-
-                    log_layout := VerticalLayout {
-                        alignment: start;
-                        padding: 6px;
-
-                        Text {
-                            text: root.log_text;
-                            color: Theme.terminal-text;
-                            font-family: "DejaVu Sans Mono, monospace";
-                            font-size: 11px;
-                            wrap: word-wrap;
-                        }
-                    }
+                    read-only: true;
+                    text: root.log_text;
+                    font-family: "DejaVu Sans Mono, monospace";
+                    font-size: 11px;
+                    wrap: word-wrap;
                 }
 
                 if root.log_text == "" : Text {

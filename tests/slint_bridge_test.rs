@@ -633,3 +633,61 @@ fn test_bridge_save_task_with_stop_command_persistence() {
     }
 }
 
+#[test]
+fn test_bridge_log_viewer_search_and_navigation() {
+    let (controller, dir) = setup_test_controller();
+    let _ = dir;
+
+    if let Ok(window) = MainWindow::new() {
+        controller.bind_to_ui(&window);
+
+        // Populate log viewer with sample log output
+        let log_sample = "[INFO] Starting service...\n[DEBUG] Connecting to DB\n[INFO] Service started on port 3000\n[INFO] Ready for requests";
+        window.set_log_viewer_text(log_sample.into());
+
+        // 1. Search for [INFO] (should find 3 matches)
+        window.invoke_log_search("[INFO]".into());
+
+        assert_eq!(window.get_log_viewer_match_count(), 3);
+        assert_eq!(window.get_log_viewer_match_index(), 0);
+
+        let search_state = controller.log_search_state();
+        assert_eq!(search_state.query, "[INFO]");
+        assert_eq!(search_state.matches.len(), 3);
+        assert_eq!(search_state.current_index, 0);
+
+        // 2. Next match -> index 1
+        window.invoke_log_find_next();
+        assert_eq!(window.get_log_viewer_match_index(), 1);
+        assert_eq!(controller.log_search_state().current_index, 1);
+
+        // 3. Next match -> index 2
+        window.invoke_log_find_next();
+        assert_eq!(window.get_log_viewer_match_index(), 2);
+        assert_eq!(controller.log_search_state().current_index, 2);
+
+        // 4. Next match wrap-around -> index 0
+        window.invoke_log_find_next();
+        assert_eq!(window.get_log_viewer_match_index(), 0);
+        assert_eq!(controller.log_search_state().current_index, 0);
+
+        // 5. Prev match wrap-around -> index 2
+        window.invoke_log_find_prev();
+        assert_eq!(window.get_log_viewer_match_index(), 2);
+        assert_eq!(controller.log_search_state().current_index, 2);
+
+        // 6. Search for non-existent text
+        window.invoke_log_search("NONEXISTENT_ERROR".into());
+        assert_eq!(window.get_log_viewer_match_count(), 0);
+        assert_eq!(window.get_log_viewer_match_index(), 0);
+        assert!(controller.log_search_state().matches.is_empty());
+
+        // 7. Clear query
+        window.invoke_log_search("".into());
+        assert_eq!(window.get_log_viewer_match_count(), 0);
+        assert_eq!(window.get_log_viewer_match_index(), 0);
+        assert!(controller.log_search_state().query.is_empty());
+    }
+}
+
+

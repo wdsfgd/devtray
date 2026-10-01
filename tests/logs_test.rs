@@ -1,4 +1,4 @@
-use devtray::core::logs::{strip_ansi_codes, LogBroadcaster};
+use devtray::core::logs::{find_matches, strip_ansi_codes, LogBroadcaster};
 use std::fs;
 use tempfile::tempdir;
 
@@ -142,4 +142,50 @@ fn test_cached_file_handle_verbose_logging() {
     let line_count = content.lines().count();
     assert_eq!(line_count, 500);
 }
+
+#[test]
+fn test_find_matches_empty_query_and_haystack() {
+    assert_eq!(find_matches("hello world", ""), Vec::<(usize, usize)>::new());
+    assert_eq!(find_matches("", "hello"), Vec::<(usize, usize)>::new());
+    assert_eq!(find_matches("", ""), Vec::<(usize, usize)>::new());
+}
+
+#[test]
+fn test_find_matches_case_insensitive() {
+    let haystack = "Hello hELlo HELLO";
+    let matches = find_matches(haystack, "hello");
+    assert_eq!(matches, vec![(0, 5), (6, 11), (12, 17)]);
+    for (start, end) in matches {
+        assert_eq!(&haystack[start..end].to_lowercase(), "hello");
+    }
+}
+
+#[test]
+fn test_find_matches_multiple_occurrences() {
+    let haystack = "[INFO] Server started\n[INFO] Listening on 8080\n[ERROR] Connection failed";
+    let matches = find_matches(haystack, "[INFO]");
+    assert_eq!(matches, vec![(0, 6), (22, 28)]);
+    for (start, end) in matches {
+        assert_eq!(&haystack[start..end], "[INFO]");
+    }
+}
+
+#[test]
+fn test_find_matches_no_match() {
+    let haystack = "abc def ghi";
+    let matches = find_matches(haystack, "xyz");
+    assert!(matches.is_empty());
+}
+
+#[test]
+fn test_find_matches_unicode_multibyte() {
+    let haystack = "状态: 运行中\n状态: 停止";
+    let needle = "状态";
+    let matches = find_matches(haystack, needle);
+    assert_eq!(matches, vec![(0, 6), (18, 24)]);
+    for (start, end) in matches {
+        assert_eq!(&haystack[start..end], needle);
+    }
+}
+
 
