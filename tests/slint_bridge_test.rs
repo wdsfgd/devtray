@@ -501,3 +501,135 @@ fn test_bridge_i18n_binding_and_language_toggle() {
     }
 }
 
+#[test]
+fn test_bridge_task_dialog_available_groups_and_stop_command() {
+    let (controller, _dir) = setup_test_controller();
+
+    let _t1 = controller
+        .add_task("Server", "echo s", ".", Some("Backend"))
+        .unwrap();
+    let t2 = controller
+        .add_task_with_stop_command(
+            "Warp",
+            "podman compose up",
+            ".",
+            Some("Proxies"),
+            Some("podman compose down"),
+        )
+        .unwrap();
+
+    let groups = controller.get_groups();
+    assert_eq!(groups, vec!["Backend", "Proxies"]);
+
+    let Ok(window) = MainWindow::new() else {
+        eprintln!("Skipping UI dialog test: no display");
+        return;
+    };
+
+    controller.bind_to_ui(&window);
+
+    // 1. Open Add Dialog -> available_groups supplied, stop_command is empty
+    window.invoke_open_add_task();
+    assert!(window.get_task_dialog_open());
+    assert!(!window.get_task_dialog_is_edit());
+    assert_eq!(window.get_task_dialog_stop_command().as_str(), "");
+    assert_eq!(window.get_available_groups().row_count(), 2);
+    assert_eq!(
+        window.get_available_groups().row_data(0).unwrap().as_str(),
+        "Backend"
+    );
+    assert_eq!(
+        window.get_available_groups().row_data(1).unwrap().as_str(),
+        "Proxies"
+    );
+
+    // 2. Open Edit Dialog for task with stop_command -> available_groups and stop_command populated
+    window.invoke_edit_task(t2.id.as_str().into());
+    assert!(window.get_task_dialog_open());
+    assert!(window.get_task_dialog_is_edit());
+    assert_eq!(
+        window.get_task_dialog_stop_command().as_str(),
+        "podman compose down"
+    );
+    assert_eq!(window.get_available_groups().row_count(), 2);
+}
+
+#[test]
+fn test_bridge_save_task_with_stop_command_persistence() {
+    let (controller, dir) = setup_test_controller();
+    let config_file = dir.path().join("config.json");
+    let cm_verify = ConfigManager::with_path(config_file.clone());
+
+    // 1. Add new task with stop command
+    let t1 = controller
+        .save_task_with_stop_command(
+            "",
+            "Container",
+            "podman run app",
+            "/srv",
+            Some("Apps"),
+            Some("podman stop app"),
+        )
+        .expect("save new task with stop command");
+
+    assert_eq!(t1.stop_command.as_deref(), Some("podman stop app"));
+
+    let loaded = cm_verify.load().unwrap();
+    assert_eq!(loaded.len(), 1);
+    assert_eq!(loaded[0].stop_command.as_deref(), Some("podman stop app"));
+
+    // 2. Update task with modified stop command
+    let t1_updated = controller
+        .save_task_with_stop_command(
+            &t1.id,
+            "Container",
+            "podman run app:v2",
+            "/srv",
+            Some("Apps"),
+            Some("podman kill app"),
+        )
+        .expect("update task with stop command");
+
+    assert_eq!(t1_updated.stop_command.as_deref(), Some("podman kill app"));
+    let loaded2 = cm_verify.load().unwrap();
+    assert_eq!(loaded2[0].stop_command.as_deref(), Some("podman kill app"));
+
+    // 3. Clear stop command
+    let t1_cleared = controller
+        .save_task_with_stop_command(
+            &t1.id,
+            "Container",
+            "podman run app:v2",
+            "/srv",
+            Some("Apps"),
+            None,
+        )
+        .expect("clear stop command");
+
+    assert_eq!(t1_cleared.stop_command, None);
+    let loaded3 = cm_verify.load().unwrap();
+    assert_eq!(loaded3[0].stop_command, None);
+
+    // 4. Save via UI callback with 6 parameters
+    if let Ok(window) = MainWindow::new() {
+        controller.bind_to_ui(&window);
+
+        window.invoke_save_task(
+            "".into(),
+            "FromUI".into(),
+            "cmd from ui".into(),
+            ".".into(),
+            "UIGroup".into(),
+            "stop cmd from ui".into(),
+        );
+
+        let tasks = controller.tasks();
+        let ui_task = tasks.iter().find(|t| t.name == "FromUI").expect("task created via UI");
+        assert_eq!(ui_task.stop_command.as_deref(), Some("stop cmd from ui"));
+
+        let loaded4 = cm_verify.load().unwrap();
+        let loaded_ui_task = loaded4.iter().find(|t| t.name == "FromUI").unwrap();
+        assert_eq!(loaded_ui_task.stop_command.as_deref(), Some("stop cmd from ui"));
+    }
+}
+

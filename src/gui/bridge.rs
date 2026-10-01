@@ -105,6 +105,8 @@ impl From<I18nStrings> for I18nData {
             field_working_dir: SharedString::from(s.field_working_dir),
             field_group: SharedString::from(s.field_group),
             placeholder_group: SharedString::from(s.placeholder_group),
+            field_stop_command: SharedString::from(s.field_stop_command),
+            placeholder_stop_command: SharedString::from(s.placeholder_stop_command),
             err_name_empty: SharedString::from(s.err_name_empty),
             err_command_empty: SharedString::from(s.err_command_empty),
             cancel: SharedString::from(s.cancel),
@@ -122,6 +124,8 @@ impl From<I18nStrings> for I18nData {
             copy_logs: SharedString::from(s.copy_logs),
             clear_view: SharedString::from(s.clear_view),
             close: SharedString::from(s.close),
+            search_logs: SharedString::from(s.search_logs),
+            no_matches: SharedString::from(s.no_matches),
         }
     }
 }
@@ -294,6 +298,11 @@ impl SlintAppController {
             let model = Rc::new(VecModel::from(items));
             ui.set_tasks(model.into());
             ui.set_running_count(running);
+            let groups = self.get_groups();
+            let groups_model = Rc::new(VecModel::from(
+                groups.into_iter().map(SharedString::from).collect::<Vec<_>>(),
+            ));
+            ui.set_available_groups(groups_model.into());
             true
         } else {
             if ui.get_running_count() != running {
@@ -310,7 +319,18 @@ impl SlintAppController {
         working_directory: &str,
         group: Option<&str>,
     ) -> Result<TaskConfig, BridgeError> {
-        let task = TaskConfig::new(name, command, working_directory, group)?;
+        self.add_task_with_stop_command(name, command, working_directory, group, None)
+    }
+
+    pub fn add_task_with_stop_command(
+        &self,
+        name: &str,
+        command: &str,
+        working_directory: &str,
+        group: Option<&str>,
+        stop_command: Option<&str>,
+    ) -> Result<TaskConfig, BridgeError> {
+        let task = TaskConfig::with_stop_command(name, command, working_directory, group, stop_command)?;
         let mut tasks = self.task_list.lock().unwrap();
         tasks.push(task.clone());
         order_tasks(&mut tasks);
@@ -328,6 +348,26 @@ impl SlintAppController {
         working_directory: &str,
         group: Option<&str>,
     ) -> Result<TaskConfig, BridgeError> {
+        let existing_stop = self.get_task(id).and_then(|t| t.stop_command);
+        self.update_task_with_stop_command(
+            id,
+            name,
+            command,
+            working_directory,
+            group,
+            existing_stop.as_deref(),
+        )
+    }
+
+    pub fn update_task_with_stop_command(
+        &self,
+        id: &str,
+        name: &str,
+        command: &str,
+        working_directory: &str,
+        group: Option<&str>,
+        stop_command: Option<&str>,
+    ) -> Result<TaskConfig, BridgeError> {
         let name_trimmed = name.trim();
         if name_trimmed.is_empty() {
             return Err(BridgeError::ValidationError(ModelError::EmptyName));
@@ -344,6 +384,9 @@ impl SlintAppController {
         let group_opt = group
             .map(|g| g.trim().to_string())
             .filter(|g| !g.is_empty());
+        let stop_cmd_opt = stop_command
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
 
         let mut tasks = self.task_list.lock().unwrap();
         let task = tasks
@@ -355,6 +398,7 @@ impl SlintAppController {
         task.command = command_trimmed.to_string();
         task.working_directory = working_dir;
         task.group = group_opt;
+        task.stop_command = stop_cmd_opt;
 
         let updated_task = task.clone();
         order_tasks(&mut tasks);
@@ -372,10 +416,69 @@ impl SlintAppController {
         working_directory: &str,
         group: Option<&str>,
     ) -> Result<TaskConfig, BridgeError> {
+        self.save_task_with_stop_command(id, name, command, working_directory, group, None)
+    }
+
+    pub fn save_task_with_stop_command(
+        &self,
+        id: &str,
+        name: &str,
+        command: &str,
+        working_directory: &str,
+        group: Option<&str>,
+        stop_command: Option<&str>,
+    ) -> Result<TaskConfig, BridgeError> {
         if id.trim().is_empty() {
-            self.add_task(name, command, working_directory, group)
+            self.add_task_with_stop_command(name, command, working_directory, group, stop_command)
         } else {
-            self.update_task(id, name, command, working_directory, group)
+            self.update_task_with_stop_command(
+                id,
+                name,
+                command,
+                working_directory,
+                group,
+                stop_command,
+            )
+        }
+    }
+
+    pub fn open_add_dialog(&self, ui: &MainWindow) {
+        let groups = self.get_groups();
+        let groups_model = Rc::new(VecModel::from(
+            groups.into_iter().map(SharedString::from).collect::<Vec<_>>(),
+        ));
+        ui.set_available_groups(groups_model.into());
+        ui.set_task_dialog_id("".into());
+        ui.set_task_dialog_name("".into());
+        ui.set_task_dialog_command("".into());
+        ui.set_task_dialog_working_dir(".".into());
+        ui.set_task_dialog_group("".into());
+        ui.set_task_dialog_stop_command("".into());
+        ui.set_task_dialog_error("".into());
+        ui.set_task_dialog_is_edit(false);
+        ui.set_task_dialog_open(true);
+    }
+
+    pub fn open_edit_dialog(&self, task_id: &str, ui: &MainWindow) -> bool {
+        let groups = self.get_groups();
+        let groups_model = Rc::new(VecModel::from(
+            groups.into_iter().map(SharedString::from).collect::<Vec<_>>(),
+        ));
+        ui.set_available_groups(groups_model.into());
+
+        if let Some(task) = self.get_task(task_id) {
+            ui.set_task_dialog_id(task.id.clone().into());
+            ui.set_task_dialog_name(task.name.into());
+            ui.set_task_dialog_command(task.command.into());
+            ui.set_task_dialog_working_dir(task.working_directory.into());
+            ui.set_task_dialog_group(task.group.unwrap_or_default().into());
+            ui.set_task_dialog_stop_command(task.stop_command.unwrap_or_default().into());
+            ui.set_task_dialog_error("".into());
+            ui.set_task_dialog_is_edit(true);
+            ui.set_task_dialog_open(true);
+            true
+        } else {
+            false
         }
     }
 
@@ -610,18 +713,24 @@ impl SlintAppController {
         {
             let c = controller.clone();
             let ui_weak = ui.as_weak();
-            ui.on_save_task(move |id, name, cmd, dir, group| {
+            ui.on_save_task(move |id, name, cmd, dir, group, stop_cmd| {
                 let group_opt = if group.trim().is_empty() {
                     None
                 } else {
                     Some(group.as_str())
                 };
-                let _ = c.save_task(
+                let stop_cmd_opt = if stop_cmd.trim().is_empty() {
+                    None
+                } else {
+                    Some(stop_cmd.as_str())
+                };
+                let _ = c.save_task_with_stop_command(
                     id.as_str(),
                     name.as_str(),
                     cmd.as_str(),
                     dir.as_str(),
                     group_opt,
+                    stop_cmd_opt,
                 );
                 if let Some(ui) = ui_weak.upgrade() {
                     c.refresh_tasks(&ui);
@@ -653,7 +762,24 @@ impl SlintAppController {
 
         // 5. Edit task callback
         {
-            ui.on_edit_task(|_| {});
+            let c = controller.clone();
+            let ui_weak = ui.as_weak();
+            ui.on_edit_task(move |task_id| {
+                if let Some(ui) = ui_weak.upgrade() {
+                    c.open_edit_dialog(task_id.as_str(), &ui);
+                }
+            });
+        }
+
+        // 5b. Open Add Task callback
+        {
+            let c = controller.clone();
+            let ui_weak = ui.as_weak();
+            ui.on_open_add_task(move || {
+                if let Some(ui) = ui_weak.upgrade() {
+                    c.open_add_dialog(&ui);
+                }
+            });
         }
 
         // 6. Start All / Stop All

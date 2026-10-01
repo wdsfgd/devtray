@@ -84,6 +84,8 @@ pub struct I18nStrings {
     pub field_working_dir: &'static str,
     pub field_group: &'static str,
     pub placeholder_group: &'static str,
+    pub field_stop_command: &'static str,
+    pub placeholder_stop_command: &'static str,
     pub err_name_empty: &'static str,
     pub err_command_empty: &'static str,
     pub cancel: &'static str,
@@ -105,6 +107,8 @@ pub struct I18nStrings {
     pub copy_logs: &'static str,
     pub clear_view: &'static str,
     pub close: &'static str,
+    pub search_logs: &'static str,
+    pub no_matches: &'static str,
 }
 
 pub const EN_STRINGS: I18nStrings = I18nStrings {
@@ -138,6 +142,8 @@ pub const EN_STRINGS: I18nStrings = I18nStrings {
     field_working_dir: "Working Directory",
     field_group: "Group (Optional)",
     placeholder_group: "e.g. Web",
+    field_stop_command: "Stop Command (Optional)",
+    placeholder_stop_command: "e.g. podman compose down",
     err_name_empty: "Task name cannot be empty",
     err_command_empty: "Task command cannot be empty",
     cancel: "Cancel",
@@ -157,6 +163,8 @@ pub const EN_STRINGS: I18nStrings = I18nStrings {
     copy_logs: "Copy Logs",
     clear_view: "Clear View",
     close: "Close",
+    search_logs: "Search logs...",
+    no_matches: "No matches",
 };
 
 pub const ZH_STRINGS: I18nStrings = I18nStrings {
@@ -190,6 +198,8 @@ pub const ZH_STRINGS: I18nStrings = I18nStrings {
     field_working_dir: "工作目录",
     field_group: "分组（可选）",
     placeholder_group: "例如：Web",
+    field_stop_command: "停止命令 (可选)",
+    placeholder_stop_command: "例如: podman compose down",
     err_name_empty: "任务名称不能为空",
     err_command_empty: "启动命令不能为空",
     cancel: "取消",
@@ -209,6 +219,8 @@ pub const ZH_STRINGS: I18nStrings = I18nStrings {
     copy_logs: "复制日志",
     clear_view: "清空视图",
     close: "关闭",
+    search_logs: "搜索日志...",
+    no_matches: "无匹配项",
 };
 
 impl I18nStrings {
@@ -292,5 +304,20 @@ mod tests {
     fn test_open_window_localization() {
         assert_eq!(I18nStrings::en().open_window, "Open Window");
         assert_eq!(I18nStrings::zh().open_window, "打开窗口");
+    }
+
+    #[test]
+    fn test_task3_localization_strings() {
+        let en = I18nStrings::en();
+        assert_eq!(en.field_stop_command, "Stop Command (Optional)");
+        assert_eq!(en.placeholder_stop_command, "e.g. podman compose down");
+        assert_eq!(en.search_logs, "Search logs...");
+        assert_eq!(en.no_matches, "No matches");
+
+        let zh = I18nStrings::zh();
+        assert_eq!(zh.field_stop_command, "停止命令 (可选)");
+        assert_eq!(zh.placeholder_stop_command, "例如: podman compose down");
+        assert_eq!(zh.search_logs, "搜索日志...");
+        assert_eq!(zh.no_matches, "无匹配项");
     }
 }

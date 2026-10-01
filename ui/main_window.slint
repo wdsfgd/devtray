@@ -34,7 +34,9 @@ export component MainWindow inherits Window {
     in-out property <string> task_dialog_command: "";
     in-out property <string> task_dialog_working_dir: ".";
     in-out property <string> task_dialog_group: "";
+    in-out property <string> task_dialog_stop_command: "";
     in-out property <string> task_dialog_error: "";
+    in property <[string]> available_groups: [];
 
     // Delete confirmation dialog properties
     in-out property <bool> delete_dialog_open: false;
@@ -49,9 +51,10 @@ export component MainWindow inherits Window {
     callback toggle_task(string /* task_id */);
     callback show_logs(string /* task_id */, string /* task_name */);
     callback edit_task(string /* task_id */);
+    callback open_add_task();
     callback delete_task(string /* task_id */);
     callback move_task(string /* task_id */, int /* direction */);
-    callback save_task(string /* id */, string /* name */, string /* command */, string /* working_dir */, string /* group */);
+    callback save_task(string /* id */, string /* name */, string /* command */, string /* working_dir */, string /* group */, string /* stop_command */);
     callback confirm_delete_task(string /* id */);
     callback start_all();
     callback stop_all();
@@ -163,9 +166,11 @@ export component MainWindow inherits Window {
                             root.task_dialog_command = "";
                             root.task_dialog_working_dir = ".";
                             root.task_dialog_group = "";
+                            root.task_dialog_stop_command = "";
                             root.task_dialog_error = "";
                             root.task_dialog_is_edit = false;
                             root.task_dialog_open = true;
+                            root.open_add_task();
                         }
                     }
 
@@ -387,10 +392,12 @@ export component MainWindow inherits Window {
         command_text <=> root.task_dialog_command;
         working_dir_text <=> root.task_dialog_working_dir;
         group_text <=> root.task_dialog_group;
+        stop_command_text <=> root.task_dialog_stop_command;
+        available_groups: root.available_groups;
         error_message <=> root.task_dialog_error;
 
-        save(id, name, cmd, dir, group) => {
-            root.save_task(id, name, cmd, dir, group);
+        save(id, name, cmd, dir, group, stop_cmd) => {
+            root.save_task(id, name, cmd, dir, group, stop_cmd);
         }
     }
 
