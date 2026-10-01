@@ -90,12 +90,13 @@ impl ksni::Tray for DevTraySysTray {
 
     fn menu(&self) -> Vec<ksni::MenuItem<Self>> {
         let mut items: Vec<ksni::MenuItem<Self>> = Vec::new();
+        let tr = self.controller.get_language().strings();
 
-        // 1. Open DevTray
+        // 1. Open Window
         let ui_weak = self.ui_handle.clone();
         items.push(
             ksni::menu::StandardItem {
-                label: "Open DevTray".to_string(),
+                label: tr.open_window.to_string(),
                 activate: Box::new(move |_| {
                     let ui_weak = ui_weak.clone();
                     slint::invoke_from_event_loop(move || {
@@ -118,6 +119,12 @@ impl ksni::Tray for DevTraySysTray {
 
         // 2. Group submenus
         for group in groups {
+            let group_label = if group.trim().is_empty() {
+                tr.uncategorized.to_string()
+            } else {
+                group.clone()
+            };
+
             let group_tasks: Vec<_> = tasks
                 .iter()
                 .filter(|t| t.group.as_deref().map(|g| g.trim()) == Some(group.as_str()))
@@ -126,12 +133,12 @@ impl ksni::Tray for DevTraySysTray {
 
             let mut sub_items: Vec<ksni::MenuItem<Self>> = Vec::new();
 
-            // ▶ Start All
+            // Start All
             let c = self.controller.clone();
             let g = group.clone();
             sub_items.push(
                 ksni::menu::StandardItem {
-                    label: "▶ Start All".to_string(),
+                    label: tr.start_all.to_string(),
                     activate: Box::new(move |_| {
                         let _ = c.start_group(&g);
                     }),
@@ -140,12 +147,12 @@ impl ksni::Tray for DevTraySysTray {
                 .into(),
             );
 
-            // ⏹ Stop All
+            // Stop All
             let c = self.controller.clone();
             let g = group.clone();
             sub_items.push(
                 ksni::menu::StandardItem {
-                    label: "⏹ Stop All".to_string(),
+                    label: tr.stop_all.to_string(),
                     activate: Box::new(move |_| {
                         let _ = c.stop_group(&g);
                     }),
@@ -181,7 +188,7 @@ impl ksni::Tray for DevTraySysTray {
 
             items.push(
                 ksni::menu::SubMenu {
-                    label: group,
+                    label: group_label,
                     submenu: sub_items,
                     ..Default::default()
                 }
@@ -223,11 +230,11 @@ impl ksni::Tray for DevTraySysTray {
         // Separator
         items.push(ksni::MenuItem::Separator);
 
-        // 4. Quit DevTray
+        // 4. Quit
         let c = self.controller.clone();
         items.push(
             ksni::menu::StandardItem {
-                label: "Quit DevTray".to_string(),
+                label: tr.quit.to_string(),
                 activate: Box::new(move |_| {
                     c.stop_all();
                     slint::quit_event_loop().ok();

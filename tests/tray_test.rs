@@ -1,4 +1,5 @@
 use devtray::core::config::ConfigManager;
+use devtray::core::i18n::Language;
 use devtray::core::logs::LogBroadcaster;
 use devtray::core::process::ProcessManager;
 use devtray::gui::bridge::SlintAppController;
@@ -61,23 +62,23 @@ fn test_tray_menu_structure_with_groups_and_uncategorized() {
     controller.add_task("Postgres", "echo postgres", ".", Some("Database")).unwrap();
     controller.add_task("Standalone Worker", "echo worker", ".", None).unwrap();
 
-    let tray = DevTraySysTray::new(controller, ui_handle);
+    let tray = DevTraySysTray::new(controller.clone(), ui_handle);
     let menu = tray.menu();
 
     // Menu layout:
-    // 0: Standard("Open DevTray")
+    // 0: Standard("Open Window")
     // 1: Separator
     // 2: SubMenu("Database")
     // 3: SubMenu("Web")
     // 4: Checkmark("Standalone Worker")
     // 5: Separator
-    // 6: Standard("Quit DevTray")
+    // 6: Standard("Quit")
     assert_eq!(menu.len(), 7);
 
-    // 0: Open DevTray
+    // 0: Open Window
     match &menu[0] {
-        MenuItem::Standard(item) => assert_eq!(item.label, "Open DevTray"),
-        _ => panic!("Expected StandardItem for Open DevTray"),
+        MenuItem::Standard(item) => assert_eq!(item.label, "Open Window"),
+        _ => panic!("Expected StandardItem for Open Window"),
     }
 
     // 1: Separator
@@ -164,9 +165,58 @@ fn test_tray_menu_structure_with_groups_and_uncategorized() {
         _ => panic!("Expected Separator before Quit"),
     }
 
-    // 6: Quit DevTray
+    // 6: Quit
     match &menu[6] {
-        MenuItem::Standard(item) => assert_eq!(item.label, "Quit DevTray"),
-        _ => panic!("Expected StandardItem for Quit DevTray"),
+        MenuItem::Standard(item) => assert_eq!(item.label, "Quit"),
+        _ => panic!("Expected StandardItem for Quit"),
+    }
+
+    // Dynamic Localization Verification: Mandarin
+    controller.set_language(Language::Zh);
+    let zh_menu = tray.menu();
+    assert_eq!(zh_menu.len(), 7);
+
+    // 0: Open Window (Mandarin)
+    match &zh_menu[0] {
+        MenuItem::Standard(item) => assert_eq!(item.label, "打开窗口"),
+        _ => panic!("Expected StandardItem for 打开窗口"),
+    }
+
+    // 2: Database SubMenu (Mandarin Start All & Stop All)
+    match &zh_menu[2] {
+        MenuItem::SubMenu(sub) => {
+            assert_eq!(sub.label, "Database");
+            match &sub.submenu[0] {
+                MenuItem::Standard(item) => assert_eq!(item.label, "▶ 全部启动"),
+                _ => panic!("Expected ▶ 全部启动"),
+            }
+            match &sub.submenu[1] {
+                MenuItem::Standard(item) => assert_eq!(item.label, "⏹ 全部停止"),
+                _ => panic!("Expected ⏹ 全部停止"),
+            }
+        }
+        _ => panic!("Expected SubMenu for Database"),
+    }
+
+    // 3: Web SubMenu (Mandarin Start All & Stop All)
+    match &zh_menu[3] {
+        MenuItem::SubMenu(sub) => {
+            assert_eq!(sub.label, "Web");
+            match &sub.submenu[0] {
+                MenuItem::Standard(item) => assert_eq!(item.label, "▶ 全部启动"),
+                _ => panic!("Expected ▶ 全部启动"),
+            }
+            match &sub.submenu[1] {
+                MenuItem::Standard(item) => assert_eq!(item.label, "⏹ 全部停止"),
+                _ => panic!("Expected ⏹ 全部停止"),
+            }
+        }
+        _ => panic!("Expected SubMenu for Web"),
+    }
+
+    // 6: Quit (Mandarin)
+    match &zh_menu[6] {
+        MenuItem::Standard(item) => assert_eq!(item.label, "退出"),
+        _ => panic!("Expected StandardItem for 退出"),
     }
 }

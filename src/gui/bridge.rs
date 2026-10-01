@@ -181,6 +181,10 @@ impl SlintAppController {
         *self.language.lock().unwrap()
     }
 
+    pub fn get_language(&self) -> Language {
+        self.language()
+    }
+
     pub fn get_i18n_data(&self) -> I18nData {
         let lang = self.language();
         I18nData::from(lang)

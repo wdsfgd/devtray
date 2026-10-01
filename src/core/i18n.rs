@@ -68,10 +68,11 @@ pub struct I18nStrings {
     pub edit: &'static str,
     pub del: &'static str,
 
-    // Bottom action bar
+    // Bottom action bar & Tray
     pub start_all: &'static str,
     pub stop_all: &'static str,
     pub quit: &'static str,
+    pub open_window: &'static str,
 
     // Task modal dialog
     pub add_task_title: &'static str,
@@ -126,6 +127,7 @@ pub const EN_STRINGS: I18nStrings = I18nStrings {
     start_all: "▶ Start All",
     stop_all: "⏹ Stop All",
     quit: "Quit",
+    open_window: "Open Window",
 
     add_task_title: "Add Task",
     edit_task_title: "Edit Task",
@@ -177,6 +179,7 @@ pub const ZH_STRINGS: I18nStrings = I18nStrings {
     start_all: "▶ 全部启动",
     stop_all: "⏹ 全部停止",
     quit: "退出",
+    open_window: "打开窗口",
 
     add_task_title: "新建任务",
     edit_task_title: "编辑任务",
@@ -283,5 +286,11 @@ mod tests {
 
         let zh_strings = I18nStrings::zh();
         assert_eq!(zh_strings.delete_confirm_message("Web"), "确认删除任务“Web”？");
+    }
+
+    #[test]
+    fn test_open_window_localization() {
+        assert_eq!(I18nStrings::en().open_window, "Open Window");
+        assert_eq!(I18nStrings::zh().open_window, "打开窗口");
     }
 }
