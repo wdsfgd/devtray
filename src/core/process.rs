@@ -11,6 +11,7 @@ use nix::unistd::Pid;
 use crate::core::config::ConfigManager;
 use crate::core::logs::LogBroadcaster;
 use crate::core::model::TaskConfig;
+use crate::core::state::{StateManager, TaskRuntimeRecord};
 
 type RunningMap = Arc<Mutex<HashMap<String, u32>>>;
 type ExitCallback = Arc<Mutex<Option<Box<dyn Fn(String) + Send + Sync>>>>;
@@ -19,15 +20,25 @@ pub struct ProcessManager {
     broadcaster: LogBroadcaster,
     running: RunningMap,
     on_exit: ExitCallback,
+    state_manager: StateManager,
 }
 
 impl ProcessManager {
     pub fn new(broadcaster: LogBroadcaster) -> Self {
+        Self::with_state_manager(broadcaster, StateManager::new())
+    }
+
+    pub fn with_state_manager(broadcaster: LogBroadcaster, state_manager: StateManager) -> Self {
         Self {
             broadcaster,
             running: Arc::new(Mutex::new(HashMap::new())),
             on_exit: Arc::new(Mutex::new(None)),
+            state_manager,
         }
+    }
+
+    pub fn state_manager(&self) -> &StateManager {
+        &self.state_manager
     }
 
     pub fn set_on_exit(&self, callback: impl Fn(String) + Send + Sync + 'static) {
@@ -80,6 +91,18 @@ impl ProcessManager {
             running.insert(task.id.clone(), pid);
         }
 
+        let _ = self.state_manager.set_task(
+            &task.id,
+            TaskRuntimeRecord {
+                pid,
+                name: task.name.clone(),
+                started_at: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs(),
+            },
+        );
+
         // Stream stdout
         if let Some(stdout) = stdout {
             let broadcaster = self.broadcaster.clone();
@@ -107,6 +130,7 @@ impl ProcessManager {
         // Wait thread for reaping
         let running_map = Arc::clone(&self.running);
         let on_exit_cb = Arc::clone(&self.on_exit);
+        let state_mgr = self.state_manager.clone();
         let task_id = task.id.clone();
         thread::spawn(move || {
             let _ = child.wait();
@@ -124,6 +148,7 @@ impl ProcessManager {
                 }
             };
             if removed {
+                let _ = state_mgr.remove_task(&task_id);
                 let cb_guard = on_exit_cb.lock().unwrap();
                 if let Some(cb) = cb_guard.as_ref() {
                     cb(task_id);
@@ -142,6 +167,7 @@ impl ProcessManager {
                 None => return Ok(()),
             }
         };
+        let _ = self.state_manager.remove_task(&task.id);
 
         if let Some(ref cmd) = task.stop_command {
             let cmd_trimmed = cmd.trim();
@@ -170,9 +196,76 @@ impl ProcessManager {
                 None => return Ok(()),
             }
         };
+        let _ = self.state_manager.remove_task(task_id);
 
         Self::escalate_stop_signals(pid);
         Ok(())
+    }
+
+    pub fn recover_running_processes(&self, tasks: &[TaskConfig]) -> usize {
+        let saved_records = self.state_manager.load();
+        if saved_records.is_empty() {
+            return 0;
+        }
+
+        let mut recovered_count = 0;
+        let mut to_remove = Vec::new();
+
+        for (task_id, record) in saved_records {
+            let is_known = tasks.iter().any(|t| t.id == task_id);
+            if !is_known {
+                to_remove.push(task_id);
+                continue;
+            }
+
+            if Self::is_process_alive(record.pid as i32) {
+                {
+                    let mut running = self.running.lock().unwrap();
+                    running.insert(task_id.clone(), record.pid);
+                }
+                recovered_count += 1;
+
+                // Spawn orphan monitor thread to detect exit of adopted process
+                let running_map = Arc::clone(&self.running);
+                let on_exit_cb = Arc::clone(&self.on_exit);
+                let state_mgr = self.state_manager.clone();
+                let task_id_clone = task_id.clone();
+                let pid = record.pid;
+                thread::spawn(move || {
+                    while Self::is_process_alive(pid as i32) {
+                        thread::sleep(std::time::Duration::from_millis(500));
+                    }
+                    let removed = {
+                        let mut running = running_map.lock().unwrap();
+                        if let Some(&current_pid) = running.get(&task_id_clone) {
+                            if current_pid == pid {
+                                running.remove(&task_id_clone);
+                                true
+                            } else {
+                                false
+                            }
+                        } else {
+                            false
+                        }
+                    };
+                    if removed {
+                        let _ = state_mgr.remove_task(&task_id_clone);
+                        let cb_guard = on_exit_cb.lock().unwrap();
+                        if let Some(cb) = cb_guard.as_ref() {
+                            cb(task_id_clone);
+                        }
+                    }
+                });
+            } else {
+                to_remove.push(task_id);
+            }
+        }
+
+        for id in to_remove {
+            let _ = self.state_manager.remove_task(&id);
+        }
+
+        recovered_count
     }
 
     fn escalate_stop_signals(pid: u32) {

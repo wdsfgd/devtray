@@ -178,6 +178,7 @@ impl SlintAppController {
         let mut tasks = config_manager.load().unwrap_or_default();
         order_tasks(&mut tasks);
         let language = config_manager.load_language().unwrap_or_default();
+        let _ = process_manager.recover_running_processes(&tasks);
         Self {
             config_manager: Arc::new(config_manager),
             process_manager: Arc::new(process_manager),

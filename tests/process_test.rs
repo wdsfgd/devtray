@@ -357,3 +357,87 @@ fn test_is_process_alive_handles_eperm_and_liveness() {
     // Non-existent PID should not be alive
     assert!(!ProcessManager::is_process_alive(999_999));
 }
+
+#[test]
+fn test_process_state_persistence_on_start_and_stop() {
+    let dir = tempdir().unwrap();
+    let broadcaster = LogBroadcaster::new(dir.path().join("logs"), 100);
+    let state_file = dir.path().join("state.json");
+    let sm = devtray::core::state::StateManager::with_path(state_file.clone());
+    let pm = ProcessManager::with_state_manager(broadcaster, sm.clone());
+
+    let task = TaskConfig::new("SleepState", "sleep 10", ".", None).unwrap();
+    assert!(sm.load().is_empty());
+
+    pm.start(&task).expect("start should succeed");
+    std::thread::sleep(Duration::from_millis(50));
+    assert!(pm.is_running(&task.id));
+
+    let loaded = sm.load();
+    assert_eq!(loaded.len(), 1);
+    assert_eq!(loaded.get(&task.id).unwrap().name, "SleepState");
+    let pid = loaded.get(&task.id).unwrap().pid;
+    assert_eq!(pm.get_pid(&task.id), Some(pid));
+
+    pm.stop(&task.id).expect("stop should succeed");
+    std::thread::sleep(Duration::from_millis(50));
+    assert!(!pm.is_running(&task.id));
+
+    let loaded_after = sm.load();
+    assert!(loaded_after.is_empty(), "Stopping task must remove it from state file");
+}
+
+#[test]
+fn test_process_recovery_adopts_running_and_prunes_dead() {
+    let dir = tempdir().unwrap();
+    let broadcaster1 = LogBroadcaster::new(dir.path().join("logs"), 100);
+    let state_file = dir.path().join("state.json");
+    let sm = devtray::core::state::StateManager::with_path(state_file.clone());
+    let pm1 = ProcessManager::with_state_manager(broadcaster1, sm.clone());
+
+    let task_alive = TaskConfig::new("AliveTask", "sleep 10", ".", None).unwrap();
+    let task_dead = TaskConfig::new("DeadTask", "echo dead", ".", None).unwrap();
+
+    // Start alive task in pm1
+    pm1.start(&task_alive).expect("start alive task");
+    std::thread::sleep(Duration::from_millis(50));
+    let alive_pid = pm1.get_pid(&task_alive.id).unwrap();
+
+    // Insert a dummy dead task into state file
+    sm.set_task(&task_dead.id, devtray::core::state::TaskRuntimeRecord {
+        pid: 999_999,
+        name: "DeadTask".to_string(),
+        started_at: 1000,
+    }).unwrap();
+
+    let before_recovery = sm.load();
+    assert_eq!(before_recovery.len(), 2);
+
+    // Now simulate restarting the app: create pm2 with same state_manager
+    let broadcaster2 = LogBroadcaster::new(dir.path().join("logs"), 100);
+    let pm2 = ProcessManager::with_state_manager(broadcaster2, sm.clone());
+
+    assert!(!pm2.is_running(&task_alive.id));
+    assert!(!pm2.is_running(&task_dead.id));
+
+    let tasks = vec![task_alive.clone(), task_dead.clone()];
+    let recovered = pm2.recover_running_processes(&tasks);
+
+    assert_eq!(recovered, 1, "Only the alive task should be recovered");
+    assert!(pm2.is_running(&task_alive.id));
+    assert_eq!(pm2.get_pid(&task_alive.id), Some(alive_pid));
+    assert!(!pm2.is_running(&task_dead.id));
+
+    // The dead task should have been pruned from the state file
+    let after_recovery = sm.load();
+    assert_eq!(after_recovery.len(), 1);
+    assert!(after_recovery.contains_key(&task_alive.id));
+    assert!(!after_recovery.contains_key(&task_dead.id));
+
+    // Clean up: stop the adopted task through pm2
+    pm2.stop(&task_alive.id).expect("stop adopted task");
+    std::thread::sleep(Duration::from_millis(100));
+    assert!(!pm2.is_running(&task_alive.id));
+    assert!(sm.load().is_empty());
+}
+
