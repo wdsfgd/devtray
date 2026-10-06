@@ -11,7 +11,8 @@ AppDir/
 # Agent, AI, and Documentation files
 .agents/skills
 .claude/skills
-.scratch/devtray/
+.scratch/
+.superpowers/
 docs/
 skills-lock.json
 AGENTS.md
