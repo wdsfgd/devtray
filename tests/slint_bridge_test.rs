@@ -692,4 +692,87 @@ fn test_bridge_log_viewer_search_and_navigation() {
     }
 }
 
+#[test]
+fn test_truncate_to_max_lines() {
+    use devtray::gui::bridge::truncate_to_max_lines;
+
+    assert_eq!(truncate_to_max_lines("", 5), "");
+    assert_eq!(truncate_to_max_lines("line 1\nline 2", 5), "line 1\nline 2");
+    assert_eq!(truncate_to_max_lines("line 1\nline 2", 2), "line 1\nline 2");
+    assert_eq!(
+        truncate_to_max_lines("line 1\nline 2\nline 3\nline 4\nline 5", 3),
+        "line 3\nline 4\nline 5"
+    );
+    assert_eq!(truncate_to_max_lines("line 1\nline 2", 0), "");
+}
+
+#[test]
+fn test_log_viewer_sliding_window_capping_and_close() {
+    use slint::ComponentHandle;
+
+    let dir = tempdir().unwrap();
+    let config_file = dir.path().join("config.json");
+    let log_dir = dir.path().join("logs");
+
+    let config = ConfigManager::with_path(config_file);
+    let logs = LogBroadcaster::new(log_dir, 1000);
+    let process = ProcessManager::new(logs.clone());
+
+    let controller = SlintAppController::new(config, process, logs.clone());
+    let Ok(window) = MainWindow::new() else {
+        eprintln!("Skipping UI portion of log viewer test: no display available or event loop occupied");
+        return;
+    };
+    controller.bind_to_ui(&window);
+
+    // Generate 600 lines for a task
+    for i in 0..600 {
+        logs.append("HugeTask", &format!("log line {}", i)).unwrap();
+    }
+
+    let ui_weak = window.as_weak();
+    controller.show_logs_for_task("HugeTask", &ui_weak);
+
+    let text = window.get_log_viewer_text();
+    let lines_count = text.lines().count();
+    assert!(
+        lines_count <= 500,
+        "Log viewer text must be capped to MAX_UI_LOG_LINES (500), got: {}",
+        lines_count
+    );
+    assert!(text.contains("log line 599"));
+    assert!(!text.contains("log line 0")); // Older lines should be truncated
+
+    // Now test close_logs callback
+    window.invoke_close_logs();
+    assert!(!window.get_log_viewer_open());
+    assert_eq!(window.get_log_viewer_text().as_str(), "");
+}
+
+#[test]
+fn test_open_file_i18n_strings_and_zero_emojis() {
+    let en = Language::En.strings();
+    let zh = Language::Zh.strings();
+
+    assert_eq!(en.open_file, "Open File");
+    assert_eq!(zh.open_file, "打开文件");
+
+    let is_emoji = |ch: char| -> bool {
+        matches!(ch as u32,
+            0x1F600..=0x1F64F |
+            0x1F300..=0x1F5FF |
+            0x1F680..=0x1F6FF |
+            0x1F1E0..=0x1F1FF |
+            0x2600..=0x26FF |
+            0x2700..=0x27BF |
+            0xFE00..=0xFE0F |
+            0x1F900..=0x1F9FF |
+            0x1FA70..=0x1FAFF
+        )
+    };
+
+    assert!(!en.open_file.chars().any(is_emoji));
+    assert!(!zh.open_file.chars().any(is_emoji));
+}
+
 

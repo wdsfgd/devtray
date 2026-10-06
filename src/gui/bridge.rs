@@ -49,6 +49,18 @@ pub fn order_tasks(tasks: &mut Vec<TaskConfig>) {
     *tasks = ordered;
 }
 
+pub fn truncate_to_max_lines(text: &str, max_lines: usize) -> String {
+    if max_lines == 0 {
+        return String::new();
+    }
+    let lines: Vec<&str> = text.lines().collect();
+    if lines.len() <= max_lines {
+        text.to_string()
+    } else {
+        lines[lines.len() - max_lines..].join("\n")
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TaskSnapshot {
     pub id: String,
@@ -123,6 +135,7 @@ impl From<I18nStrings> for I18nData {
             no_logs_recorded: SharedString::from(s.no_logs_recorded),
             copy_logs: SharedString::from(s.copy_logs),
             clear_view: SharedString::from(s.clear_view),
+            open_file: SharedString::from(s.open_file),
             close: SharedString::from(s.close),
             search_logs: SharedString::from(s.search_logs),
             no_matches: SharedString::from(s.no_matches),
@@ -258,6 +271,10 @@ impl SlintAppController {
 
     pub fn is_task_running(&self, task_id: &str) -> bool {
         self.process_manager.is_running(task_id)
+    }
+
+    pub fn broadcaster(&self) -> &LogBroadcaster {
+        &self.broadcaster
     }
 
     pub fn get_recent_logs(&self, task_name: &str) -> Vec<String> {
@@ -632,9 +649,48 @@ impl SlintAppController {
         self.process_manager.stop_all();
     }
 
+    pub const MAX_UI_LOG_LINES: usize = 500;
+
+    pub fn close_log_viewer(&self) {
+        let mut sub_guard = self.active_log_subscription.lock().unwrap();
+        *sub_guard = None;
+        let mut search_guard = self.log_search_state.lock().unwrap();
+        *search_guard = LogSearchState::default();
+    }
+
+    pub fn open_log_file(&self, task_name: &str) {
+        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+        let log_file = PathBuf::from(home)
+            .join(".cache")
+            .join("devtray")
+            .join("logs")
+            .join(format!("{}.log", task_name));
+
+        if !log_file.exists() {
+            if let Some(parent) = log_file.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            let _ = std::fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .open(&log_file);
+        }
+
+        std::thread::spawn(move || {
+            let _ = std::process::Command::new("xdg-open")
+                .arg(&log_file)
+                .status();
+        });
+    }
+
     pub fn show_logs_for_task(&self, task_name: &str, ui_weak: &slint::Weak<MainWindow>) {
         let recent = self.get_recent_logs(task_name);
-        let initial_text = recent.join("\n");
+        let initial_lines = if recent.len() > Self::MAX_UI_LOG_LINES {
+            &recent[recent.len() - Self::MAX_UI_LOG_LINES..]
+        } else {
+            &recent[..]
+        };
+        let initial_text = initial_lines.join("\n");
 
         if let Some(ui) = ui_weak.upgrade() {
             ui.set_log_viewer_text(initial_text.into());
@@ -658,44 +714,54 @@ impl SlintAppController {
         let ui_weak_clone = ui_weak.clone();
         let target_name = task_name.to_string();
         let search_state_clone = self.log_search_state.clone();
+        let ticker = crossbeam_channel::tick(std::time::Duration::from_millis(100));
 
-        std::thread::spawn(move || loop {
-            crossbeam_channel::select! {
-                recv(stop_rx) -> _ => break,
-                recv(rx) -> msg => {
-                    match msg {
-                        Ok(line) => {
-                            let ui_weak = ui_weak_clone.clone();
-                            let line_clone = line;
-                            let expected_name = target_name.clone();
-                            let search_state = search_state_clone.clone();
-                            slint::invoke_from_event_loop(move || {
-                                if let Some(ui) = ui_weak.upgrade() {
-                                    if ui.get_log_viewer_open()
-                                        && ui.get_log_viewer_task_name().as_str() == expected_name
-                                    {
-                                        let current = ui.get_log_viewer_text();
-                                        let new_text = if current.is_empty() {
-                                            line_clone
-                                        } else {
-                                            format!("{}\n{}", current, line_clone)
-                                        };
-                                        ui.set_log_viewer_text(new_text.as_str().into());
+        std::thread::spawn(move || {
+            let mut batch: Vec<String> = Vec::new();
 
-                                        let mut search_guard = search_state.lock().unwrap();
-                                        if !search_guard.query.is_empty() {
-                                            search_guard.matches = crate::core::logs::find_matches(
-                                                new_text.as_str(),
-                                                &search_guard.query,
-                                            );
-                                            ui.set_log_viewer_match_count(search_guard.matches.len() as i32);
-                                        }
-                                    }
-                                }
-                            })
-                            .ok();
+            loop {
+                crossbeam_channel::select! {
+                    recv(stop_rx) -> _ => break,
+                    recv(ticker) -> _ => {
+                        if !batch.is_empty() {
+                            flush_log_batch(
+                                &batch,
+                                &ui_weak_clone,
+                                &target_name,
+                                &search_state_clone,
+                                Self::MAX_UI_LOG_LINES,
+                            );
+                            batch.clear();
                         }
-                        Err(_) => break,
+                    }
+                    recv(rx) -> msg => {
+                        match msg {
+                            Ok(line) => {
+                                batch.push(line);
+                                if batch.len() >= 100 {
+                                    flush_log_batch(
+                                        &batch,
+                                        &ui_weak_clone,
+                                        &target_name,
+                                        &search_state_clone,
+                                        Self::MAX_UI_LOG_LINES,
+                                    );
+                                    batch.clear();
+                                }
+                            }
+                            Err(_) => {
+                                if !batch.is_empty() {
+                                    flush_log_batch(
+                                        &batch,
+                                        &ui_weak_clone,
+                                        &target_name,
+                                        &search_state_clone,
+                                        Self::MAX_UI_LOG_LINES,
+                                    );
+                                }
+                                break;
+                            }
+                        }
                     }
                 }
             }
@@ -761,7 +827,47 @@ impl SlintAppController {
     pub fn log_search_state(&self) -> LogSearchState {
         self.log_search_state.lock().unwrap().clone()
     }
+}
 
+fn flush_log_batch(
+    lines: &[String],
+    ui_weak: &slint::Weak<MainWindow>,
+    expected_name: &str,
+    search_state: &Arc<Mutex<LogSearchState>>,
+    max_lines: usize,
+) {
+    let joined_batch = lines.join("\n");
+    let target_name = expected_name.to_string();
+    let search_state = search_state.clone();
+    let ui_weak = ui_weak.clone();
+
+    slint::invoke_from_event_loop(move || {
+        if let Some(ui) = ui_weak.upgrade() {
+            if ui.get_log_viewer_open() && ui.get_log_viewer_task_name().as_str() == target_name {
+                let current = ui.get_log_viewer_text();
+                let combined = if current.is_empty() {
+                    joined_batch
+                } else {
+                    format!("{}\n{}", current, joined_batch)
+                };
+                let new_text = truncate_to_max_lines(&combined, max_lines);
+                ui.set_log_viewer_text(new_text.as_str().into());
+
+                let mut search_guard = search_state.lock().unwrap();
+                if !search_guard.query.is_empty() {
+                    search_guard.matches = crate::core::logs::find_matches(
+                        new_text.as_str(),
+                        &search_guard.query,
+                    );
+                    ui.set_log_viewer_match_count(search_guard.matches.len() as i32);
+                }
+            }
+        }
+    })
+    .ok();
+}
+
+impl SlintAppController {
     pub fn bind_to_ui(&self, ui: &MainWindow) {
         ui.set_tr(self.get_i18n_data());
 
@@ -925,6 +1031,31 @@ impl SlintAppController {
                     let text = ui.get_log_viewer_text();
                     copy_to_clipboard(text.as_str());
                 }
+            });
+        }
+
+        // 9b. Close Logs
+        {
+            let c = controller.clone();
+            let ui_weak = ui.as_weak();
+            ui.on_close_logs(move || {
+                c.close_log_viewer();
+                if let Some(ui) = ui_weak.upgrade() {
+                    ui.set_log_viewer_open(false);
+                    ui.set_log_viewer_text("".into());
+                    ui.set_log_viewer_search_query("".into());
+                    ui.set_log_viewer_match_count(0);
+                    ui.set_log_viewer_match_index(0);
+                    ui.invoke_set_log_selection(0, 0);
+                }
+            });
+        }
+
+        // 9c. Open Log File
+        {
+            let c = controller.clone();
+            ui.on_open_log_file(move |task_name| {
+                c.open_log_file(task_name.as_str());
             });
         }
 
