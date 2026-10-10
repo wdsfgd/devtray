@@ -1,6 +1,6 @@
 [package]
 name = "devtray"
-version = "2.1.2"
+version = "2.1.3"
 edition = "2021"
 authors = ["DevTray Contributors"]
 description = "A lightweight system tray application to manage background development services"
