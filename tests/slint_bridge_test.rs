@@ -179,30 +179,6 @@ fn test_bridge_move_task() {
 }
 
 #[test]
-fn test_bridge_reorder_task() {
-    let (controller, _dir) = setup_test_controller();
-
-    let _t1 = controller.add_task("T1", "echo 1", ".", Some("Backend")).unwrap();
-    let _t2 = controller.add_task("T2", "echo 2", ".", Some("Backend")).unwrap();
-    let t3 = controller.add_task("T3", "echo 3", ".", Some("Frontend")).unwrap();
-
-    // Reorder T3 to index 0 -> [T3, T1, T2], adopting Backend group
-    let reordered = controller.reorder_task(&t3.id, 0).unwrap();
-    assert!(reordered);
-
-    let tasks = controller.tasks();
-    assert_eq!(
-        tasks.iter().map(|t| &t.name).collect::<Vec<_>>(),
-        vec!["T3", "T1", "T2"]
-    );
-    assert_eq!(tasks[0].group.as_deref(), Some("Backend"));
-
-    // Reorder nonexistent
-    let err = controller.reorder_task("invalid", 0);
-    assert!(matches!(err, Err(BridgeError::TaskNotFound(_))));
-}
-
-#[test]
 fn test_bridge_process_management_and_groups() {
     let (controller, _dir) = setup_test_controller();
 

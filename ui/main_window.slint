@@ -55,7 +55,6 @@ export component MainWindow inherits Window {
     callback show_logs(string /* task_id */, string /* task_name */);
     callback edit_task(string /* task_id */);
     callback open_add_task();
-    callback delete_task(string /* task_id */);
     callback move_task(string /* task_id */, int /* direction */);
     callback save_task(string /* id */, string /* name */, string /* command */, string /* working_dir */, string /* group */, string /* stop_command */);
     callback confirm_delete_task(string /* id */);
@@ -256,9 +255,6 @@ export component MainWindow inherits Window {
                         TaskCard {
                             task: task;
                             tr: root.tr;
-                            tr_logs: root.tr.logs;
-                            tr_edit: root.tr.edit;
-                            tr_del: root.tr.del;
 
                             toggle_task => {
                                 root.toggle_task(task.id);

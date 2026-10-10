@@ -558,33 +558,6 @@ impl SlintAppController {
         }
     }
 
-    pub fn reorder_task(&self, task_id: &str, target_index: usize) -> Result<bool, BridgeError> {
-        let mut tasks = self.task_list.lock().unwrap();
-        let current_pos = tasks
-            .iter()
-            .position(|t| t.id == task_id)
-            .ok_or_else(|| BridgeError::TaskNotFound(task_id.to_string()))?;
-
-        if tasks.is_empty() {
-            return Ok(false);
-        }
-
-        let clamped_target = target_index.min(tasks.len() - 1);
-        if current_pos == clamped_target {
-            return Ok(false);
-        }
-
-        let target_group = tasks[clamped_target].group.clone();
-        let mut task = tasks.remove(current_pos);
-        task.group = target_group;
-        tasks.insert(clamped_target, task);
-
-        self.config_manager.save(&tasks)?;
-        drop(tasks);
-        self.invalidate_snapshot();
-        Ok(true)
-    }
-
     pub fn start_task(&self, task_id: &str) -> Result<(), BridgeError> {
         let task = self
             .get_task(task_id)
@@ -943,16 +916,6 @@ impl SlintAppController {
                 }
             });
         }
-        {
-            let c = controller.clone();
-            let ui_weak = ui.as_weak();
-            ui.on_delete_task(move |task_id| {
-                let _ = c.delete_task(task_id.as_str());
-                if let Some(ui) = ui_weak.upgrade() {
-                    c.refresh_tasks(&ui);
-                }
-            });
-        }
 
         // 5. Edit task callback
         {
@@ -1140,8 +1103,9 @@ pub fn copy_to_clipboard(text: &str) {
         if let Some(mut stdin) = child.stdin.take() {
             let _ = stdin.write_all(text.as_bytes());
         }
-        let _ = child.wait();
-        return;
+        if child.wait().map(|s| s.success()).unwrap_or(false) {
+            return;
+        }
     }
 
     // 2. Try xclip (X11)
@@ -1154,8 +1118,9 @@ pub fn copy_to_clipboard(text: &str) {
         if let Some(mut stdin) = child.stdin.take() {
             let _ = stdin.write_all(text.as_bytes());
         }
-        let _ = child.wait();
-        return;
+        if child.wait().map(|s| s.success()).unwrap_or(false) {
+            return;
+        }
     }
 
     // 3. Try xsel (X11 fallback)

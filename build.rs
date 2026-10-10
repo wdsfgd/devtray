@@ -9,7 +9,7 @@ fn main() {
     let img = image::open("assets/icon.png").expect("Failed to open assets/icon.png");
     let (width, height) = (img.width(), img.height());
     let mut data = img.into_rgba8().into_vec();
-    for pixel in data.chunks_exact_mut(4) {
+    for pixel in data.as_chunks_mut::<4>().0 {
         pixel.rotate_right(1); // [R, G, B, A] -> [A, R, G, B] network byte order for StatusNotifierItem
     }
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());

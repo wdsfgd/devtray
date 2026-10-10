@@ -15,9 +15,6 @@ export struct TaskItem {
 export component TaskCard inherits Rectangle {
     in property <TaskItem> task;
     in property <I18nData> tr;
-    in property <string> tr_logs: root.tr.logs != "" ? root.tr.logs : "Logs";
-    in property <string> tr_edit: root.tr.edit != "" ? root.tr.edit : "Edit";
-    in property <string> tr_del: root.tr.del != "" ? root.tr.del : "Del";
 
     callback toggle_task();
     callback show_logs();
@@ -157,7 +154,7 @@ export component TaskCard inherits Rectangle {
                             alignment: center;
 
                             Text {
-                                text: root.tr_logs;
+                                text: root.tr.logs;
                                 font-size: 11px;
                                 font-weight: 500;
                                 color: btnLogs.has-hover ? Theme.text-primary : Theme.text-secondary;
@@ -185,7 +182,7 @@ export component TaskCard inherits Rectangle {
                             alignment: center;
 
                             Text {
-                                text: root.tr_edit;
+                                text: root.tr.edit;
                                 font-size: 11px;
                                 font-weight: 500;
                                 color: btnEdit.has-hover ? Theme.text-primary : Theme.text-secondary;
@@ -213,7 +210,7 @@ export component TaskCard inherits Rectangle {
                             alignment: center;
 
                             Text {
-                                text: root.tr_del;
+                                text: root.tr.del;
                                 font-size: 11px;
                                 font-weight: 500;
                                 color: btnDelete.has-hover ? Theme.danger : Theme.text-secondary;

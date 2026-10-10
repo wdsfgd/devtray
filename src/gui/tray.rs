@@ -134,11 +134,7 @@ impl ksni::Tray for DevTraySysTray {
 
         // 2. Group submenus
         for group in groups {
-            let group_label = if group.trim().is_empty() {
-                tr.uncategorized.to_string()
-            } else {
-                group.clone()
-            };
+            let group_label = group.clone();
 
             let group_tasks: Vec<_> = tasks
                 .iter()
