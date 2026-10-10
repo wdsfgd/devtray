@@ -122,3 +122,19 @@ fn test_legacy_array_backward_compatibility() {
     assert_eq!(cm.load_language().unwrap(), Language::En);
 }
 
+#[test]
+fn test_save_language_propagates_read_error_without_data_loss() {
+    let dir = tempdir().unwrap();
+    let config_path = dir.path().join("config.json");
+    // Write invalid json
+    std::fs::write(&config_path, "{ broken json").unwrap();
+
+    let cm = ConfigManager::with_path(config_path.clone());
+    let res = cm.save_language(devtray::core::i18n::Language::Zh);
+    assert!(res.is_err(), "save_language must return an error when config file cannot be parsed");
+
+    // Ensure the file content was NOT overwritten with empty tasks
+    let raw = std::fs::read_to_string(&config_path).unwrap();
+    assert_eq!(raw, "{ broken json", "broken config must not be replaced by empty tasks");
+}
+

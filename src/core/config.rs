@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct AppConfig {
     #[serde(default)]
     pub language: Language,
@@ -12,30 +12,9 @@ pub struct AppConfig {
     pub tasks: Vec<TaskConfig>,
 }
 
-impl Default for AppConfig {
-    fn default() -> Self {
-        Self {
-            language: Language::default(),
-            tasks: Vec::new(),
-        }
-    }
-}
-
 impl AppConfig {
     pub fn new(tasks: Vec<TaskConfig>, language: Language) -> Self {
         Self { language, tasks }
-    }
-}
-
-impl From<(Vec<TaskConfig>, Language)> for AppConfig {
-    fn from((tasks, language): (Vec<TaskConfig>, Language)) -> Self {
-        Self { language, tasks }
-    }
-}
-
-impl From<AppConfig> for (Vec<TaskConfig>, Language) {
-    fn from(config: AppConfig) -> Self {
-        (config.tasks, config.language)
     }
 }
 
@@ -107,7 +86,10 @@ impl ConfigManager {
         }
         let data = serde_json::to_string_pretty(config)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-        fs::write(&self.path, data)
+        let tmp_path = self.path.with_extension("tmp");
+        fs::write(&tmp_path, data)?;
+        fs::rename(&tmp_path, &self.path)?;
+        Ok(())
     }
 
     pub fn save_full(&self, tasks: &[TaskConfig], language: Language) -> Result<(), std::io::Error> {
@@ -123,7 +105,7 @@ impl ConfigManager {
     }
 
     pub fn save_language(&self, language: Language) -> Result<(), std::io::Error> {
-        let current_tasks = self.load().unwrap_or_default();
+        let current_tasks = self.load()?;
         self.save_full(&current_tasks, language)
     }
 
