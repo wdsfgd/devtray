@@ -1,8 +1,7 @@
-use crossbeam_channel::{bounded, Sender};
 use std::io::{self, Read, Write};
+use std::os::unix::io::AsRawFd;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 /// Result of attempting to acquire single-instance lock.
 pub enum SingleInstanceStatus {
@@ -16,14 +15,14 @@ pub enum SingleInstanceStatus {
 pub struct SingleInstanceGuard {
     socket_path: PathBuf,
     listener: Option<UnixListener>,
-    stop_tx: Option<Sender<()>>,
+    shutdown_stream: Option<UnixStream>,
     listener_thread: Option<std::thread::JoinHandle<()>>,
 }
 
 impl Drop for SingleInstanceGuard {
     fn drop(&mut self) {
-        if let Some(tx) = self.stop_tx.take() {
-            let _ = tx.send(());
+        if let Some(mut stream) = self.shutdown_stream.take() {
+            let _ = stream.write_all(&[1]);
         }
         if let Some(handle) = self.listener_thread.take() {
             let _ = handle.join();
@@ -39,28 +38,57 @@ impl SingleInstanceGuard {
         F: Fn() + Send + 'static,
     {
         if let Some(listener) = self.listener.take() {
-            let (tx, rx) = bounded::<()>(1);
-            self.stop_tx = Some(tx);
+            let (shutdown_tx, shutdown_rx) = match UnixStream::pair() {
+                Ok(pair) => pair,
+                Err(e) => {
+                    eprintln!("[SingleInstance] Failed to create shutdown socket pair: {e}");
+                    return;
+                }
+            };
 
-            if let Err(e) = listener.set_nonblocking(true) {
-                eprintln!("[SingleInstance] Failed to set listener non-blocking: {e}");
-            }
+            self.shutdown_stream = Some(shutdown_tx);
 
             let handle = std::thread::spawn(move || {
-                while rx.try_recv().is_err() {
-                    match listener.accept() {
-                        Ok((mut stream, _)) => {
-                            let mut buf = [0u8; 32];
-                            if let Ok(n) = stream.read(&mut buf) {
-                                if n > 0 {
-                                    on_show();
+                let listener_fd = listener.as_raw_fd();
+                let shutdown_fd = shutdown_rx.as_raw_fd();
+
+                loop {
+                    let mut fds = [
+                        libc::pollfd {
+                            fd: listener_fd,
+                            events: libc::POLLIN,
+                            revents: 0,
+                        },
+                        libc::pollfd {
+                            fd: shutdown_fd,
+                            events: libc::POLLIN | libc::POLLHUP,
+                            revents: 0,
+                        },
+                    ];
+
+                    let ret = unsafe { libc::poll(fds.as_mut_ptr(), 2, -1) };
+                    if ret <= 0 {
+                        break;
+                    }
+
+                    // Check if shutdown was requested
+                    if fds[1].revents != 0 {
+                        break;
+                    }
+
+                    // Check if new connection arrived on listener
+                    if (fds[0].revents & libc::POLLIN) != 0 {
+                        match listener.accept() {
+                            Ok((mut stream, _)) => {
+                                let mut buf = [0u8; 32];
+                                if let Ok(n) = stream.read(&mut buf) {
+                                    if n > 0 {
+                                        on_show();
+                                    }
                                 }
                             }
+                            Err(_) => break,
                         }
-                        Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
-                            std::thread::sleep(Duration::from_millis(50));
-                        }
-                        Err(_) => break,
                     }
                 }
             });
@@ -121,7 +149,7 @@ impl SingleInstance {
         Ok(SingleInstanceStatus::Primary(SingleInstanceGuard {
             socket_path: socket_path.to_path_buf(),
             listener: Some(listener),
-            stop_tx: None,
+            shutdown_stream: None,
             listener_thread: None,
         }))
     }
