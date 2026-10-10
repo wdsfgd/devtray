@@ -5,8 +5,10 @@ use std::path::PathBuf;
 fn main() {
     slint_build::compile("ui/main_window.slint").expect("Failed to compile Slint UI");
 
-    // Pre-decode PNG icon to raw ARGB32 bytes at build time so the runtime binary doesn't need the image crate
+    // Pre-decode PNG icon to raw ARGB32 bytes at build time so the runtime binary doesn't need the image crate.
+    // Resize to 64x64 (standard high-DPI tray icon resolution) to save ~245 KB in binary size.
     let img = image::open("assets/icon.png").expect("Failed to open assets/icon.png");
+    let img = img.resize_exact(64, 64, image::imageops::FilterType::Lanczos3);
     let (width, height) = (img.width(), img.height());
     let mut data = img.into_rgba8().into_vec();
     for pixel in data.as_chunks_mut::<4>().0 {

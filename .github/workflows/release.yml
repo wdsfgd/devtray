@@ -49,7 +49,7 @@ jobs:
         run: xvfb-run --auto-servernum cargo test --verbose
 
       - name: Build Release Binary
-        run: cargo build --release
+        run: ./scripts/build-release.sh
 
       - name: Package Release Assets
         run: |
