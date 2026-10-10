@@ -337,4 +337,74 @@ fn test_end_to_end_window_focus_and_group_lifecycle() {
     assert_eq!(window.get_task_dialog_group().as_str(), "");
 }
 
+#[test]
+fn test_end_to_end_crash_recovery_without_stopping() {
+    let dir = tempdir().unwrap();
+    let config_file = dir.path().join("config.json");
+    let logs_dir = dir.path().join("logs");
+    let state_file = dir.path().join("state.json");
+
+    let cm = ConfigManager::with_path(config_file.clone());
+    let broadcaster1 = LogBroadcaster::new(logs_dir.clone(), 500);
+    let sm1 = devtray::core::state::StateManager::with_path(state_file.clone());
+    let pm1 = ProcessManager::with_state_manager(broadcaster1.clone(), sm1.clone());
+    let controller1 = SlintAppController::new(cm, pm1, broadcaster1);
+
+    // 1. Add and start a task in instance 1
+    let task = controller1
+        .add_task("DaemonTask", "while true; do sleep 0.1; done", ".", Some("Services"))
+        .expect("add task");
+    controller1.start_task(&task.id).expect("start task");
+    std::thread::sleep(Duration::from_millis(150));
+
+    assert!(controller1.is_task_running(&task.id));
+    assert_eq!(controller1.running_count(), 1);
+
+    // Verify task is recorded in state.json
+    let state_before = sm1.load();
+    assert!(state_before.contains_key(&task.id));
+    let pid = state_before.get(&task.id).unwrap().pid;
+    assert!(ProcessManager::is_process_alive(pid as i32));
+
+    // 2. SIMULATE SUDDEN CRASH / PKILL -9 (Drop controller1 WITHOUT stop_all)
+    drop(controller1);
+
+    // Verify the process is STILL running on the OS
+    assert!(
+        ProcessManager::is_process_alive(pid as i32),
+        "Process must stay alive on OS after DevTray crashes/exits"
+    );
+
+    // 3. Launch NEW DevTray instance (instance 2)
+    let cm2 = ConfigManager::with_path(config_file);
+    let broadcaster2 = LogBroadcaster::new(logs_dir, 500);
+    let sm2 = devtray::core::state::StateManager::with_path(state_file);
+    let pm2 = ProcessManager::with_state_manager(broadcaster2.clone(), sm2.clone());
+    let controller2 = SlintAppController::new(cm2, pm2, broadcaster2);
+
+    // 4. Verify instance 2 recovered the running task!
+    assert!(
+        controller2.is_task_running(&task.id),
+        "Controller2 must show task as running after recovery"
+    );
+    assert_eq!(controller2.running_count(), 1);
+
+    let items = controller2.get_slint_task_items();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0].id.as_str(), task.id.as_str());
+    assert!(items[0].is_running, "Slint task item is_running must be true");
+
+    // 5. Verify instance 2 can cleanly stop the adopted task
+    controller2.stop_task(&task.id).expect("stop task in instance 2");
+    std::thread::sleep(Duration::from_millis(200));
+
+    assert!(!controller2.is_task_running(&task.id));
+    assert_eq!(controller2.running_count(), 0);
+    assert!(
+        !ProcessManager::is_process_alive(pid as i32),
+        "Process must be terminated after stopping in instance 2"
+    );
+    assert!(sm2.load().is_empty(), "State file must be empty after task stop");
+}
+
 
