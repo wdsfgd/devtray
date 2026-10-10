@@ -441,3 +441,51 @@ fn test_process_recovery_adopts_running_and_prunes_dead() {
     assert!(sm.load().is_empty());
 }
 
+#[test]
+fn test_is_process_alive_rejects_zero_and_negative_pids() {
+    assert!(!ProcessManager::is_process_alive(0));
+    assert!(!ProcessManager::is_process_alive(-1));
+    assert!(!ProcessManager::is_process_alive(-1234));
+    assert!(!devtray::core::process::is_process_alive(0));
+    assert!(!devtray::core::process::is_process_alive(-1));
+}
+
+#[test]
+fn test_stop_with_config_runs_stop_command_before_signal_escalation() {
+    let dir = tempdir().unwrap();
+    let broadcaster = LogBroadcaster::new(dir.path().to_path_buf(), 100);
+    let pm = ProcessManager::new(broadcaster);
+
+    let stop_log = dir.path().join("stop_order.log");
+    let stop_log_path = stop_log.to_str().unwrap();
+
+    // Command traps SIGINT and logs "sigint", but stop_command creates the file first
+    let cmd = format!(
+        "trap 'echo sigint >> \"{}\"; exit 0' INT; while true; do sleep 0.05; done",
+        stop_log_path
+    );
+    let stop_cmd = format!("echo stop_cmd >> \"{}\"", stop_log_path);
+
+    let mut task = TaskConfig::new("OrderTest", &cmd, ".", None).unwrap();
+    task.stop_command = Some(stop_cmd);
+
+    pm.start(&task).expect("start task");
+    std::thread::sleep(Duration::from_millis(150));
+    assert!(pm.is_running(&task.id));
+
+    pm.stop_with_config(&task).expect("stop with config");
+
+    // Wait up to 1 second for shutdown
+    for _ in 0..20 {
+        if !pm.is_running(&task.id) && stop_log.exists() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+
+    let content = std::fs::read_to_string(&stop_log).unwrap_or_default();
+    let lines: Vec<&str> = content.lines().collect();
+    assert!(!lines.is_empty(), "stop_order.log should contain log lines");
+    assert_eq!(lines[0], "stop_cmd", "stop_command must run before signals are escalated");
+}
+

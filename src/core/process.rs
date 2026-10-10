@@ -159,6 +159,16 @@ impl ProcessManager {
         Ok(())
     }
 
+    fn system_boot_time_secs() -> Option<u64> {
+        let uptime_str = std::fs::read_to_string("/proc/uptime").ok()?;
+        let uptime_secs: f64 = uptime_str.split_whitespace().next()?.parse().ok()?;
+        let now_secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .ok()?
+            .as_secs();
+        now_secs.checked_sub(uptime_secs as u64)
+    }
+
     pub fn stop_with_config(&self, task: &TaskConfig) -> std::io::Result<()> {
         let pid = {
             let mut running = self.running.lock().unwrap();
@@ -169,22 +179,42 @@ impl ProcessManager {
         };
         let _ = self.state_manager.remove_task(&task.id);
 
-        if let Some(ref cmd) = task.stop_command {
-            let cmd_trimmed = cmd.trim();
-            if !cmd_trimmed.is_empty() {
-                let cmd_str = cmd_trimmed.to_string();
-                let cwd = ConfigManager::expand_path(&task.working_directory);
-                thread::spawn(move || {
+        let stop_command = task.stop_command.clone();
+        let working_dir = task.working_directory.clone();
+
+        thread::spawn(move || {
+            if let Some(cmd) = stop_command {
+                let cmd_trimmed = cmd.trim();
+                if !cmd_trimmed.is_empty() {
+                    let cwd = ConfigManager::expand_path(&working_dir);
                     let _ = Command::new("bash")
                         .arg("-c")
-                        .arg(&cmd_str)
+                        .arg(cmd_trimmed)
                         .current_dir(cwd)
                         .status();
-                });
-            }
-        }
 
-        Self::escalate_stop_signals(pid);
+                    // Allow process up to 3 seconds to exit naturally following stop_command
+                    let start = std::time::Instant::now();
+                    let wait_limit = std::time::Duration::from_millis(3000);
+                    while start.elapsed() < wait_limit {
+                        if !Self::is_process_alive(pid as i32) && !Self::is_process_alive(-(pid as i32)) {
+                            return;
+                        }
+                        thread::sleep(std::time::Duration::from_millis(50));
+                    }
+                }
+            }
+
+            if Self::is_process_alive(pid as i32) || Self::is_process_alive(-(pid as i32)) {
+                Self::run_stop_escalation(
+                    pid,
+                    std::time::Duration::from_millis(3000),
+                    std::time::Duration::from_millis(2000),
+                    std::time::Duration::from_millis(50),
+                );
+            }
+        });
+
         Ok(())
     }
 
@@ -210,12 +240,21 @@ impl ProcessManager {
 
         let mut recovered_count = 0;
         let mut to_remove = Vec::new();
+        let boot_time = Self::system_boot_time_secs();
 
         for (task_id, record) in saved_records {
             let is_known = tasks.iter().any(|t| t.id == task_id);
             if !is_known {
                 to_remove.push(task_id);
                 continue;
+            }
+
+            // Stale PID check: if the record started before current system boot, PID is recycled
+            if let Some(boot_secs) = boot_time {
+                if record.started_at > 0 && record.started_at + 5 < boot_secs {
+                    to_remove.push(task_id);
+                    continue;
+                }
             }
 
             if Self::is_process_alive(record.pid as i32) {
@@ -285,6 +324,9 @@ impl ProcessManager {
         sigterm_timeout: std::time::Duration,
         poll_interval: std::time::Duration,
     ) {
+        if pid == 0 {
+            return;
+        }
         let pgid = Pid::from_raw(-(pid as i32));
         let pid_i32 = pid as i32;
         let pgid_i32 = -(pid as i32);
@@ -335,6 +377,9 @@ impl ProcessManager {
     }
 
     pub fn is_process_alive(pid: i32) -> bool {
+        if pid <= 0 {
+            return false;
+        }
         let nix_pid = Pid::from_raw(pid);
         match kill(nix_pid, None) {
             Ok(_) => true,
