@@ -17,7 +17,8 @@ fn test_end_to_end_task_management() {
 
     let cm = ConfigManager::with_path(config_file);
     let broadcaster = LogBroadcaster::new(logs_dir.clone(), 100);
-    let pm = ProcessManager::new(broadcaster.clone());
+    let sm = devtray::core::state::StateManager::with_path(dir.path().join("state.json"));
+    let pm = ProcessManager::with_state_manager(broadcaster.clone(), sm);
 
     let tasks = vec![TaskConfig::new(
         "Echoer",
@@ -52,7 +53,8 @@ fn test_end_to_end_live_log_streaming() {
     let logs_dir = dir.path().join("logs");
 
     let broadcaster = LogBroadcaster::new(logs_dir.clone(), 100);
-    let pm = ProcessManager::new(broadcaster.clone());
+    let sm = devtray::core::state::StateManager::with_path(dir.path().join("state.json"));
+    let pm = ProcessManager::with_state_manager(broadcaster.clone(), sm);
 
     let task = TaskConfig::new(
         "Streamer",
@@ -105,7 +107,8 @@ fn test_end_to_end_group_lifecycle_and_process_tree() {
     let logs_dir = dir.path().join("logs");
 
     let broadcaster = LogBroadcaster::new(logs_dir, 100);
-    let pm = ProcessManager::new(broadcaster);
+    let sm = devtray::core::state::StateManager::with_path(dir.path().join("state.json"));
+    let pm = ProcessManager::with_state_manager(broadcaster, sm);
 
     let task1 = TaskConfig::new("Service1", "sleep 30", ".", Some("Backend")).unwrap();
     let task2 = TaskConfig::new("Service2", "sleep 30", ".", Some("Backend")).unwrap();
@@ -137,7 +140,8 @@ fn test_end_to_end_bridge_full_lifecycle() {
 
     let cm = ConfigManager::with_path(config_file.clone());
     let broadcaster = LogBroadcaster::new(logs_dir.clone(), 500);
-    let pm = ProcessManager::new(broadcaster.clone());
+    let sm = devtray::core::state::StateManager::with_path(dir.path().join("state.json"));
+    let pm = ProcessManager::with_state_manager(broadcaster.clone(), sm);
 
     let controller = SlintAppController::new(cm, pm, broadcaster);
 
@@ -222,7 +226,8 @@ fn test_end_to_end_graceful_stop_and_log_search() {
 
     let cm = ConfigManager::with_path(config_file.clone());
     let broadcaster = LogBroadcaster::new(logs_dir.clone(), 500);
-    let pm = ProcessManager::new(broadcaster.clone());
+    let sm = devtray::core::state::StateManager::with_path(dir.path().join("state.json"));
+    let pm = ProcessManager::with_state_manager(broadcaster.clone(), sm);
 
     let controller = SlintAppController::new(cm, pm, broadcaster);
 
@@ -291,7 +296,8 @@ fn test_end_to_end_window_focus_and_group_lifecycle() {
 
     let cm = ConfigManager::with_path(config_file);
     let broadcaster = LogBroadcaster::new(logs_dir, 500);
-    let pm = ProcessManager::new(broadcaster.clone());
+    let sm = devtray::core::state::StateManager::with_path(dir.path().join("state.json"));
+    let pm = ProcessManager::with_state_manager(broadcaster.clone(), sm);
 
     let controller = SlintAppController::new(cm, pm, broadcaster);
 

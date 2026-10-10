@@ -37,7 +37,8 @@ fn test_tray_metadata_and_id() {
     let dir = tempdir().unwrap();
     let config = ConfigManager::with_path(dir.path().join("config.json"));
     let logs = LogBroadcaster::new(dir.path().join("logs"), 100);
-    let process = ProcessManager::new(logs.clone());
+    let sm = devtray::core::state::StateManager::with_path(dir.path().join("state.json"));
+    let process = ProcessManager::with_state_manager(logs.clone(), sm);
     let controller = Arc::new(SlintAppController::new(config, process, logs));
     let ui_handle = slint::Weak::<MainWindow>::default();
 
@@ -59,7 +60,8 @@ fn test_tray_menu_structure_with_groups_and_uncategorized() {
     let dir = tempdir().unwrap();
     let config = ConfigManager::with_path(dir.path().join("config.json"));
     let logs = LogBroadcaster::new(dir.path().join("logs"), 100);
-    let process = ProcessManager::new(logs.clone());
+    let sm = devtray::core::state::StateManager::with_path(dir.path().join("state.json"));
+    let process = ProcessManager::with_state_manager(logs.clone(), sm);
     let controller = Arc::new(SlintAppController::new(config, process, logs));
     let ui_handle = slint::Weak::<MainWindow>::default();
 

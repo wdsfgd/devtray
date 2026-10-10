@@ -4,11 +4,18 @@ use devtray::core::process::ProcessManager;
 use std::time::Duration;
 use tempfile::tempdir;
 
+fn test_pm(dir: &tempfile::TempDir) -> (ProcessManager, LogBroadcaster) {
+    let broadcaster = LogBroadcaster::new(dir.path().to_path_buf(), 100);
+    let state_file = dir.path().join("state.json");
+    let sm = devtray::core::state::StateManager::with_path(state_file);
+    let pm = ProcessManager::with_state_manager(broadcaster.clone(), sm);
+    (pm, broadcaster)
+}
+
 #[test]
 fn test_process_lifecycle_and_termination() {
     let dir = tempdir().unwrap();
-    let broadcaster = LogBroadcaster::new(dir.path().to_path_buf(), 100);
-    let pm = ProcessManager::new(broadcaster);
+    let (pm, _broadcaster) = test_pm(&dir);
 
     let task = TaskConfig::new("Sleepy", "sleep 10", ".", None).unwrap();
     assert!(!pm.is_running(&task.id));
@@ -25,8 +32,7 @@ fn test_process_lifecycle_and_termination() {
 #[test]
 fn test_process_group_termination_kills_children() {
     let dir = tempdir().unwrap();
-    let broadcaster = LogBroadcaster::new(dir.path().to_path_buf(), 100);
-    let pm = ProcessManager::new(broadcaster);
+    let (pm, _broadcaster) = test_pm(&dir);
 
     // Spawns a background sleep and waits
     let task = TaskConfig::new("SpawnChild", "sleep 50 & sleep 50", ".", None).unwrap();
@@ -42,8 +48,7 @@ fn test_process_group_termination_kills_children() {
 #[test]
 fn test_process_natural_exit_cleanup() {
     let dir = tempdir().unwrap();
-    let broadcaster = LogBroadcaster::new(dir.path().to_path_buf(), 100);
-    let pm = ProcessManager::new(broadcaster);
+    let (pm, _broadcaster) = test_pm(&dir);
 
     let task = TaskConfig::new("Quick", "echo 'done'", ".", None).unwrap();
     pm.start(&task).expect("start should succeed");
@@ -63,8 +68,7 @@ fn test_process_natural_exit_cleanup() {
 #[test]
 fn test_process_stdout_and_stderr_captured_by_broadcaster() {
     let dir = tempdir().unwrap();
-    let broadcaster = LogBroadcaster::new(dir.path().to_path_buf(), 100);
-    let pm = ProcessManager::new(broadcaster.clone());
+    let (pm, broadcaster) = test_pm(&dir);
 
     let task = TaskConfig::new(
         "LogProducer",
@@ -94,8 +98,7 @@ fn test_process_stdout_and_stderr_captured_by_broadcaster() {
 #[test]
 fn test_process_stop_all() {
     let dir = tempdir().unwrap();
-    let broadcaster = LogBroadcaster::new(dir.path().to_path_buf(), 100);
-    let pm = ProcessManager::new(broadcaster);
+    let (pm, _broadcaster) = test_pm(&dir);
 
     let task1 = TaskConfig::new("Task1", "sleep 10", ".", None).unwrap();
     let task2 = TaskConfig::new("Task2", "sleep 10", ".", None).unwrap();
@@ -117,8 +120,7 @@ fn test_process_stop_all() {
 #[test]
 fn test_start_and_stop_idempotence() {
     let dir = tempdir().unwrap();
-    let broadcaster = LogBroadcaster::new(dir.path().to_path_buf(), 100);
-    let pm = ProcessManager::new(broadcaster);
+    let (pm, _broadcaster) = test_pm(&dir);
 
     let task = TaskConfig::new("Idempotent", "sleep 10", ".", None).unwrap();
 
@@ -146,8 +148,7 @@ fn test_start_and_stop_idempotence() {
 #[test]
 fn test_rapid_restart_reaper_synchronization() {
     let dir = tempdir().unwrap();
-    let broadcaster = LogBroadcaster::new(dir.path().to_path_buf(), 100);
-    let pm = ProcessManager::new(broadcaster);
+    let (pm, _broadcaster) = test_pm(&dir);
 
     let task = TaskConfig::new("Rapid", "sleep 10", ".", None).unwrap();
     pm.start(&task).expect("initial start should succeed");
@@ -170,8 +171,7 @@ fn test_rapid_restart_reaper_synchronization() {
 #[test]
 fn test_stop_with_config_custom_stop_command() {
     let dir = tempdir().unwrap();
-    let broadcaster = LogBroadcaster::new(dir.path().to_path_buf(), 100);
-    let pm = ProcessManager::new(broadcaster);
+    let (pm, _broadcaster) = test_pm(&dir);
 
     let marker_file = dir.path().join("stop_marker.txt");
     let marker_path = marker_file.to_str().unwrap();
@@ -197,8 +197,7 @@ fn test_stop_with_config_custom_stop_command() {
 #[test]
 fn test_process_graceful_stop_sigint_handled() {
     let dir = tempdir().unwrap();
-    let broadcaster = LogBroadcaster::new(dir.path().to_path_buf(), 100);
-    let pm = ProcessManager::new(broadcaster);
+    let (pm, _broadcaster) = test_pm(&dir);
 
     let cleanup_file = dir.path().join("sigint_clean.txt");
     let cleanup_path = cleanup_file.to_str().unwrap();
@@ -231,8 +230,7 @@ fn test_process_graceful_stop_sigint_handled() {
 #[test]
 fn test_escalation_advances_to_sigterm() {
     let dir = tempdir().unwrap();
-    let broadcaster = LogBroadcaster::new(dir.path().to_path_buf(), 100);
-    let pm = ProcessManager::new(broadcaster);
+    let (pm, _broadcaster) = test_pm(&dir);
 
     let term_file = dir.path().join("sigterm_clean.txt");
     let term_path = term_file.to_str().unwrap();
@@ -266,8 +264,7 @@ fn test_escalation_advances_to_sigterm() {
 #[test]
 fn test_escalation_advances_to_sigkill() {
     let dir = tempdir().unwrap();
-    let broadcaster = LogBroadcaster::new(dir.path().to_path_buf(), 100);
-    let pm = ProcessManager::new(broadcaster);
+    let (pm, _broadcaster) = test_pm(&dir);
 
     let task = TaskConfig::new(
         "Immortal",
@@ -302,8 +299,7 @@ fn test_escalation_advances_to_sigkill() {
 #[test]
 fn test_stop_does_not_block() {
     let dir = tempdir().unwrap();
-    let broadcaster = LogBroadcaster::new(dir.path().to_path_buf(), 100);
-    let pm = ProcessManager::new(broadcaster);
+    let (pm, _broadcaster) = test_pm(&dir);
 
     let task = TaskConfig::new(
         "Stubborn",
@@ -453,8 +449,7 @@ fn test_is_process_alive_rejects_zero_and_negative_pids() {
 #[test]
 fn test_stop_with_config_runs_stop_command_before_signal_escalation() {
     let dir = tempdir().unwrap();
-    let broadcaster = LogBroadcaster::new(dir.path().to_path_buf(), 100);
-    let pm = ProcessManager::new(broadcaster);
+    let (pm, _broadcaster) = test_pm(&dir);
 
     let stop_log = dir.path().join("stop_order.log");
     let stop_log_path = stop_log.to_str().unwrap();

@@ -12,10 +12,12 @@ fn setup_test_controller() -> (SlintAppController, tempfile::TempDir) {
     let dir = tempdir().unwrap();
     let config_file = dir.path().join("config.json");
     let log_dir = dir.path().join("logs");
+    let state_file = dir.path().join("state.json");
 
     let config = ConfigManager::with_path(config_file);
     let logs = LogBroadcaster::new(log_dir, 100);
-    let process = ProcessManager::new(logs.clone());
+    let state_mgr = devtray::core::state::StateManager::with_path(state_file);
+    let process = ProcessManager::with_state_manager(logs.clone(), state_mgr);
 
     let controller = SlintAppController::new(config, process, logs);
     (controller, dir)
@@ -459,7 +461,8 @@ fn test_bridge_i18n_binding_and_language_toggle() {
     cm2.save_language(Language::Zh).unwrap();
 
     let logs2 = LogBroadcaster::new(dir2.path().join("logs"), 100);
-    let process2 = ProcessManager::new(logs2.clone());
+    let sm2 = devtray::core::state::StateManager::with_path(dir2.path().join("state.json"));
+    let process2 = ProcessManager::with_state_manager(logs2.clone(), sm2);
     let controller2 = SlintAppController::new(cm2, process2, logs2);
 
     assert_eq!(controller2.language(), Language::Zh);
@@ -692,7 +695,8 @@ fn test_log_viewer_sliding_window_capping_and_close() {
 
     let config = ConfigManager::with_path(config_file);
     let logs = LogBroadcaster::new(log_dir, 1000);
-    let process = ProcessManager::new(logs.clone());
+    let sm = devtray::core::state::StateManager::with_path(dir.path().join("state.json"));
+    let process = ProcessManager::with_state_manager(logs.clone(), sm);
 
     let controller = SlintAppController::new(config, process, logs.clone());
     let Ok(window) = MainWindow::new() else {
