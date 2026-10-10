@@ -43,8 +43,12 @@ jobs:
             libfontconfig1-dev \
             libfreetype6-dev \
             libdbus-1-dev \
-            xvfb \
-            upx
+            xvfb
+
+      - name: Install UPX 5
+        run: |
+          curl -sL https://github.com/upx/upx/releases/download/v5.2.1/upx-5.2.1-amd64_linux.tar.xz | sudo tar -xJ --strip-components=1 -C /usr/local/bin upx-5.2.1-amd64_linux/upx
+          upx --version
 
       - name: Run Tests
         run: xvfb-run --auto-servernum cargo test --verbose

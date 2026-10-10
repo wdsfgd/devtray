@@ -26,7 +26,10 @@ cp target/release/devtray target/release/devtray.uncompressed
 
 if command -v upx >/dev/null 2>&1; then
     echo "==> Compressing binary with UPX (ultra size optimization)..."
-    upx --best --lzma target/release/devtray
+    if ! upx --best --lzma target/release/devtray; then
+        echo "::warning:: UPX packing failed (requires UPX >= 5.0 for modern ELF). Using uncompressed stripped binary."
+        cp target/release/devtray.uncompressed target/release/devtray
+    fi
 fi
 
 echo "==> Done! Output binaries:"
