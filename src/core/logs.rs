@@ -5,6 +5,33 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+/// Sanitizes a task name so it can be safely used as a filename.
+pub fn sanitize_task_filename(task_name: &str) -> String {
+    let mut safe = String::with_capacity(task_name.len());
+    for c in task_name.chars() {
+        match c {
+            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' | '\0' => {
+                if !safe.ends_with('_') && !safe.is_empty() {
+                    safe.push('_');
+                }
+            }
+            '.' => {
+                // Ignore leading dots to prevent hidden files and traversal
+                if !safe.is_empty() {
+                    safe.push('.');
+                }
+            }
+            other => safe.push(other),
+        }
+    }
+    let trimmed = safe.trim_matches(|c| c == '.' || c == ' ');
+    if trimmed.is_empty() {
+        "unnamed".to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
 /// Strips ANSI escape sequences (colors, styles, cursor commands) from text.
 pub fn strip_ansi_codes(input: &str) -> String {
     let mut result = String::with_capacity(input.len());
@@ -16,7 +43,8 @@ pub fn strip_ansi_codes(input: &str) -> String {
                 chars.next();
                 while let Some(&next) = chars.peek() {
                     chars.next();
-                    if next.is_ascii_alphabetic() {
+                    // ECMA-48 final bytes for CSI sequences are in 0x40..=0x7E ('@'..='~')
+                    if ('@'..='~').contains(&next) {
                         break;
                     }
                 }
@@ -107,7 +135,8 @@ impl LogBroadcaster {
             let mut files = self.files.lock().unwrap();
             if !files.contains_key(task_name) {
                 fs::create_dir_all(&self.log_dir)?;
-                let log_file = self.log_dir.join(format!("{}.log", task_name));
+                let safe_name = sanitize_task_filename(task_name);
+                let log_file = self.log_dir.join(format!("{}.log", safe_name));
                 let file = OpenOptions::new()
                     .create(true)
                     .append(true)

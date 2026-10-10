@@ -660,11 +660,12 @@ impl SlintAppController {
 
     pub fn open_log_file(&self, task_name: &str) {
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+        let safe_name = crate::core::logs::sanitize_task_filename(task_name);
         let log_file = PathBuf::from(home)
             .join(".cache")
             .join("devtray")
             .join("logs")
-            .join(format!("{}.log", task_name));
+            .join(format!("{}.log", safe_name));
 
         if !log_file.exists() {
             if let Some(parent) = log_file.parent() {
@@ -672,7 +673,7 @@ impl SlintAppController {
             }
             let _ = std::fs::OpenOptions::new()
                 .create(true)
-                .write(true)
+                .append(true)
                 .open(&log_file);
         }
 

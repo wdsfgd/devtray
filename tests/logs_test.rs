@@ -188,4 +188,37 @@ fn test_find_matches_unicode_multibyte() {
     }
 }
 
+#[test]
+fn test_strip_ansi_codes_bracketed_paste_and_tilde_terminators() {
+    let raw = "\x1b[200~Hello World\x1b[201~";
+    let clean = strip_ansi_codes(raw);
+    assert_eq!(clean, "Hello World");
+}
+
+#[test]
+fn test_log_file_writing_with_slashes_in_task_name() {
+    let dir = tempdir().unwrap();
+    let broadcaster = LogBroadcaster::new(dir.path().to_path_buf(), 5);
+
+    broadcaster.append("backend/api", "first line").unwrap();
+    let recent = broadcaster.get_recent_lines("backend/api");
+    assert_eq!(recent, vec!["first line"]);
+
+    let expected_file = dir.path().join("backend_api.log");
+    assert!(expected_file.exists());
+    let content = fs::read_to_string(expected_file).unwrap();
+    assert_eq!(content, "first line\n");
+}
+
+#[test]
+fn test_sanitize_task_filename() {
+    use devtray::core::logs::sanitize_task_filename;
+    assert_eq!(sanitize_task_filename("normal_task"), "normal_task");
+    assert_eq!(sanitize_task_filename("backend/api"), "backend_api");
+    assert_eq!(sanitize_task_filename("../../etc/passwd"), "etc_passwd");
+    assert_eq!(sanitize_task_filename("web:dev*test?"), "web_dev_test_");
+    assert_eq!(sanitize_task_filename("..."), "unnamed");
+    assert_eq!(sanitize_task_filename(""), "unnamed");
+}
+
 
